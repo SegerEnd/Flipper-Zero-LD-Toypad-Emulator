@@ -1,4 +1,4 @@
-# Flipper Zero Lego Dimension ToyPad Emulator
+# Flipper Zero Lego Dimensions ToyPad Emulator
 ## Overview
 This project aims to create a USB emulation app for the Flipper Zero to emulate the functionality of a Lego Dimensions ToyPad.
 
