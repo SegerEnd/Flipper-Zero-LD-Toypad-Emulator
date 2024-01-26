@@ -256,14 +256,26 @@ static void ldtoypad_draw_callback(Canvas* canvas, void* context) {
 
     // Now for USB info also but below the other one
     canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 16, 40, 16);
+    canvas_draw_box(canvas, 0, 16, 120, 16);
     canvas_set_color(canvas, ColorBlack);
     canvas_set_font(canvas, FontPrimary);
-    int32_t value2 = hid_toypad_read_IN();
-    // Convert the integer value to a string
-    char value2Str[40]; // Adjust the array size as needed
-    snprintf(value2Str, sizeof(value2Str), "%ld", (long)value2);
-    elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, value2Str);
+    // int32_t value2 = hid_toypad_read_IN();
+    // // Convert the integer value to a string
+    // char value2Str[40]; // Adjust the array size as needed
+    // snprintf(value2Str, sizeof(value2Str), "%ld", (long)value2);
+    // elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, value2Str);
+
+    // from get_debug_text() function display the text
+    elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
+    elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
+
+    canvas_set_color(canvas, ColorWhite);
+    canvas_draw_box(canvas, 0, 32, 120, 16);
+    canvas_set_color(canvas, ColorBlack);
+    canvas_set_font(canvas, FontPrimary);
+    // say ep_out before the text
+    elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
+    elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
 }
 
 void ldtoypad_enter_callback(void* context) {

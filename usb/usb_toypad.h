@@ -8,9 +8,18 @@ extern "C" {
 
 extern FuriHalUsbInterface usb_hid_ldtoypad;
 
+// typedef enum {
+//     HidDisconnected,
+//     HidConnected,
+//     HidRequest,
+// } HidEvent;
+
 int32_t hid_toypad_read_IN();
 // int32_t hid_toypad_read_OUT();
 // uint32_t hid_ldtoypad_usbinfo();
+
+char* get_debug_text_ep_in();
+char* get_debug_text_ep_out();
 
 #ifdef __cplusplus
 }

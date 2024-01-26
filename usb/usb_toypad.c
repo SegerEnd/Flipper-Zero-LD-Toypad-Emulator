@@ -267,12 +267,39 @@ static void hid_on_suspend(usbd_device* dev) {
     }
 }
 
+// create a string variablethat contains the text: nothing to debug yet
+char debug_text_ep_in[] = "nothing to debug yet";
+
+char debug_text_ep_out[] = "nothing to debug yet";
+
 static void hid_tx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
+    // UNUSED(dev);
+    // UNUSED(ep);
+    // if(event == usbd_evt_eptx) {
+    //     furi_semaphore_release(hid_semaphore);
+    // }
     UNUSED(dev);
+    UNUSED(event);
     UNUSED(ep);
-    if(event == usbd_evt_eptx) {
-        furi_semaphore_release(hid_semaphore);
+
+    uint16_t len = 32;
+    uint8_t data[len];
+    usbd_ep_read(dev, ep, data, len);
+
+    // check if endpoint is HID_EP_IN or HID_EP_OUT
+    if(ep == HID_EP_IN) {
+        // snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "tx ep: %ld", (long)event);
+        snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "tx ep: %ld", (long)data);
+    } else if(ep == HID_EP_OUT) {
+        // snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx ep: %ld", (long)event);
+        snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx ep: %ld", (long)data);
     }
+
+    // snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx: %ld", (long)event);
+    // snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx endpoint: %ld", (long)ep);
+
+    // furi_semaphore_release(hid_semaphore);
+
     // else if(boot_protocol == true) {
     //     usbd_ep_read(usb_dev, ep, &led_state, sizeof(led_state));
     // } else {
@@ -282,11 +309,54 @@ static void hid_tx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // }
 }
 
+// a function that returns a pointer to the string
+char* get_debug_text_ep_in() {
+    return debug_text_ep_in;
+}
+char* get_debug_text_ep_out() {
+    return debug_text_ep_out;
+}
+
 static void hid_rx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(dev);
+    UNUSED(event);
     UNUSED(ep);
+
+    uint16_t len = 32;
+    uint8_t data[len];
+    usbd_ep_read(dev, ep, data, len);
+
+    // save data to debug_text append 'data: ' to the front of the string
+    // snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "rx data: %ld", (long)data);
+
+    if(ep == HID_EP_IN) {
+        snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "rx ep: %ld", (long)data);
+    } else if(ep == HID_EP_OUT) {
+        snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "rx ep: %ld", (long)data);
+    }
+    int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
+                             0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    usbd_ep_write(dev, HID_EP_OUT, initPacket, sizeof(initPacket));
+
+    if(callback != NULL) {
+        // callback(HidRequest, cb_ctx);
+    }
+}
+
+static void hid_txrx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
+    // set debug_text_ep_in to the text "hello world"
+    // strcpy(debug_text_ep_in, "test 2 hello world");
+
+    // set the debug_text_ep_in to event variable value
+    // snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "txrx ev: %ld", (long)event);
+
     if(event == usbd_evt_eptx) {
-        furi_semaphore_release(hid_semaphore);
+        hid_tx_ep_callback(dev, event, ep);
+    } else if(event == usbd_evt_eprx) {
+        hid_rx_ep_callback(dev, event, ep);
+    } else {
+        hid_rx_ep_callback(dev, event, ep);
     }
 }
 
@@ -304,9 +374,9 @@ static usbd_respond hid_ep_config(usbd_device* dev, uint8_t cfg) {
     case 1:
         /* configuring device */
         usbd_ep_config(dev, HID_EP_IN, USB_EPTYPE_INTERRUPT, HID_EP_SZ);
-        usbd_reg_endpoint(dev, HID_EP_IN, hid_tx_ep_callback);
+        usbd_reg_endpoint(dev, HID_EP_IN, hid_txrx_ep_callback);
         usbd_ep_config(dev, HID_EP_OUT, USB_EPTYPE_INTERRUPT, HID_EP_SZ);
-        usbd_reg_endpoint(dev, HID_EP_OUT, hid_rx_ep_callback);
+        usbd_reg_endpoint(dev, HID_EP_OUT, hid_txrx_ep_callback);
         usbd_ep_write(dev, HID_EP_SZ, 0, 0);
         // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
         //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
@@ -389,17 +459,17 @@ int32_t hid_toypad_read_IN() {
     uint16_t len = 32;
     uint8_t data[len]; // declare data as an array of the appropriate size
     // Check if the device is connected then read the packet
-    if(hid_connected) {
-        int32_t result = usbd_ep_read(usb_dev, HID_EP_IN, data, len);
+    // if(hid_connected) {
+    int32_t result = usbd_ep_read(usb_dev, HID_EP_IN, data, len);
 
-        // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-        //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-        //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
+    // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
+    //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
+    //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
 
-        return result;
-    }
-    return 777;
+    return result;
+    // }
+    // return 888;
 }
 
 // int32_t hid_toypad_read_OUT() {
