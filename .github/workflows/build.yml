@@ -6,12 +6,12 @@ name: "FAP: Build for multiple SDK sources"
 on:
   push:
     ## put your main branch name under "braches"
-    #branches: 
-    #  - master 
+    branches: 
+      - master 
   pull_request:
-  schedule: 
+  #schedule: 
     # do a build every day
-    - cron: "1 1 * * *"
+    #- cron: "1 1 * * *"
 
 jobs:
   ufbt-build:
