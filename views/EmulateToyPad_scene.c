@@ -334,6 +334,27 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         canvas_set_color(canvas, ColorBlack);
         elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
     }
+
+    // canvas_set_color(canvas, ColorWhite);
+    // canvas_draw_box(canvas, 0, 16, 120, 16);
+    // canvas_set_color(canvas, ColorBlack);
+
+    // elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
+    // elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
+
+    canvas_set_color(canvas, ColorWhite);
+    canvas_draw_box(canvas, 0, 16, 120, 16);
+    canvas_set_color(canvas, ColorBlack);
+
+    elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
+    elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
+
+    canvas_set_color(canvas, ColorWhite);
+    canvas_draw_box(canvas, 0, 32, 120, 16);
+    canvas_set_color(canvas, ColorBlack);
+
+    elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
+    elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
 }
 
 static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context) {
