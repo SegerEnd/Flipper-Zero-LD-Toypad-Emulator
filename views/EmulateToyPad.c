@@ -17,10 +17,12 @@ struct LDToyPadEmulateView {
     View* view;
 };
 
+// Previous USB mode
 FuriHalUsbInterface* usb_mode_prev = NULL;
 
 #define numBoxes 7 // the number of boxes (7 boxes always)
 
+// The selected pad on the toypad
 uint8_t selectedBox = 0; // Variable to keep track of which toypad box is selected
 
 Submenu* selectionMenu; // The submenu to select minifigures and vehicles for each selection box
