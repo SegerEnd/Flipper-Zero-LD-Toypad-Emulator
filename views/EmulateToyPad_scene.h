@@ -23,3 +23,15 @@ typedef struct {
     // const char* world;
     // const char* abilities;
 } Minifigure;
+
+typedef struct {
+    bool left_pressed;
+    bool up_pressed;
+    bool right_pressed;
+    bool down_pressed;
+    bool ok_pressed;
+    bool back_pressed;
+    bool connected;
+
+    // uint8_t selectedBox = 0;
+} LDToyPadSceneEmulateModel;

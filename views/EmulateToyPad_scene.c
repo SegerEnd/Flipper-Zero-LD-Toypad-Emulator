@@ -54,18 +54,6 @@ uint8_t selectedBox = 0; // Variable to keep track of which toypad box is select
 
 // Submenu* selectionMenu; // The submenu to select minifigures and vehicles for each selection box
 
-typedef struct {
-    bool left_pressed;
-    bool up_pressed;
-    bool right_pressed;
-    bool down_pressed;
-    bool ok_pressed;
-    bool back_pressed;
-    bool connected;
-
-    // uint8_t selectedBox = 0;
-} LDToyPadSceneEmulateModel;
-
 // ViewDispatcher* ldtoypad_view_dispatcher;
 
 Minifigure minifigures[] = {
@@ -87,13 +75,13 @@ Minifigure minifigures[] = {
 
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
     furi_assert(context);
-    LDToyPadEmulateView* instance = context;
+    LDToyPadSceneEmulate* instance = context;
 
     // bool consumed = false;
 
     with_view_model(
-        ldtoypad_emulate_view->view,
-        LDToyPadEmulateViewModel * model,
+        instance->view,
+        LDToyPadSceneEmulateModel * model,
         {
             if(event->key == InputKeyOk) {
                 if(event->type == InputTypePress) {

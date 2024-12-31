@@ -5,17 +5,28 @@ extern "C" {
 #endif
 
 #include <furi.h>
+#include <furi_hal.h>
 
 #include <gui/gui.h>
 #include <gui/view.h>
-// #include <notification/notification.h>
+
 #include <gui/view_dispatcher.h>
+#include <gui/modules/submenu.h>
+#include <gui/modules/widget.h>
+
+// #include <notification/notification.h>
+// #include <notification/notification_messages.h>
+#include <gui/view_dispatcher.h>
+#include <gui/modules/text_input.h>
+#include <gui/modules/variable_item_list.h>
 
 // Include the used views
 // #include <gui/modules/submenu.h>
 // #include <gui/modules/dialog_ex.h>
 // #include "views/EmulateToyPad.h"
 // #include "views/Settings.h"
+
+#include "views/EmulateToyPad_scene.h"
 
 typedef struct {
     ViewDispatcher* view_dispatcher; // Switches between our views
