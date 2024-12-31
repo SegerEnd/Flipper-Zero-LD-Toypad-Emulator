@@ -277,19 +277,19 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, ViewAbout);
     widget_free(app->widget_about);
 
-    view_dispatcher_remove_view(app->view_dispatcher, ViewEmulate);
-    // view_free(app->view_game);
     ldtoypad_scene_emulate_free(app->view_scene_emulate);
-    view_free(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
+    view_dispatcher_remove_view(app->view_dispatcher, ViewEmulate);
+    // view_free(ldtoypad_scene_emulate_get_view(app->view_scene_emulate)); // This is allready happening in ldtoypad_scene_emulate_free
     free(app->view_scene_emulate);
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewConfigure);
+
     variable_item_list_free(app->variable_item_list_config);
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewSubmenu);
     submenu_free(app->submenu);
 
-    view_dispatcher_free(app->view_dispatcher);
+    // view_dispatcher_free(app->view_dispatcher); // this is causing a crash
     furi_record_close(RECORD_GUI);
 
     // app->gui = NULL;

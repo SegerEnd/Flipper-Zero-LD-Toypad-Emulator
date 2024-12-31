@@ -74,15 +74,22 @@ Minifigure minifigures[] = {
 // }
 
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
-    furi_assert(context);
     LDToyPadSceneEmulate* instance = context;
+    furi_assert(instance);
 
-    // bool consumed = false;
+    bool consumed = false;
 
     with_view_model(
         instance->view,
         LDToyPadSceneEmulateModel * model,
         {
+            // if(event->key == InputKeyBack) {
+            //     if(event->type == InputTypePress) {
+            //         model->back_pressed = true;
+            //     } else if(event->type == InputTypeRelease) {
+            //         model->back_pressed = false;
+            //     }
+            // }
             if(event->key == InputKeyOk) {
                 if(event->type == InputTypePress) {
                     model->ok_pressed = true;
@@ -101,84 +108,78 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                     // }
                     // view_dispatcher_switch_to_view(
                     //     ldtoypad_view_dispatcher, LDToyPadView_SelectionMenu);
+                    consumed = true;
 
                 } else if(event->type == InputTypeRelease) {
                     model->ok_pressed = false;
                 }
             }
             // make user loop through boxes with InputKeyLeft, InputKeyRight, InputKeyUp, InputKeyDown
-            if(event->key == InputKeyLeft) {
-                if(event->type == InputTypePress) {
-                    model->left_pressed = true;
-                    if(selectedBox == 0) {
-                        selectedBox = numBoxes;
-                    }
-                    selectedBox--;
-                } else if(event->type == InputTypeRelease) {
-                    model->left_pressed = false;
-                }
-            }
-            if(event->key == InputKeyRight) {
-                if(event->type == InputTypePress) {
-                    model->right_pressed = true;
-                    selectedBox++;
-                    if(selectedBox >= numBoxes) {
-                        selectedBox = 0;
-                    }
-                } else if(event->type == InputTypeRelease) {
-                    model->right_pressed = false;
-                }
-            }
-            if(event->key == InputKeyUp) {
-                if(event->type == InputTypePress) {
-                    model->up_pressed = true;
-                    if(selectedBox == 0) {
-                        selectedBox = 3;
-                    } else if(selectedBox >= 4) {
-                        selectedBox -= 4;
-                    } else {
-                        selectedBox = (numBoxes - 3) + selectedBox;
-                    }
-                    if(selectedBox >= numBoxes) {
-                        selectedBox = 0;
-                    }
-                } else if(event->type == InputTypeRelease) {
-                    model->up_pressed = false;
-                }
-            }
+            // if(event->key == InputKeyLeft) {
+            //     if(event->type == InputTypePress) {
+            //         model->left_pressed = true;
+            //         if(selectedBox == 0) {
+            //             selectedBox = numBoxes;
+            //         }
+            //         selectedBox--;
+            //     } else if(event->type == InputTypeRelease) {
+            //         model->left_pressed = false;
+            //     }
+            // }
+            // if(event->key == InputKeyRight) {
+            //     if(event->type == InputTypePress) {
+            //         model->right_pressed = true;
+            //         selectedBox++;
+            //         if(selectedBox >= numBoxes) {
+            //             selectedBox = 0;
+            //         }
+            //     } else if(event->type == InputTypeRelease) {
+            //         model->right_pressed = false;
+            //     }
+            // }
+            // if(event->key == InputKeyUp) {
+            //     if(event->type == InputTypePress) {
+            //         model->up_pressed = true;
+            //         if(selectedBox == 0) {
+            //             selectedBox = 3;
+            //         } else if(selectedBox >= 4) {
+            //             selectedBox -= 4;
+            //         } else {
+            //             selectedBox = (numBoxes - 3) + selectedBox;
+            //         }
+            //         if(selectedBox >= numBoxes) {
+            //             selectedBox = 0;
+            //         }
+            //     } else if(event->type == InputTypeRelease) {
+            //         model->up_pressed = false;
+            //     }
+            // }
 
-            if(event->key == InputKeyDown) {
-                if(event->type == InputTypePress) {
-                    model->down_pressed = true;
-                    if(selectedBox == 2) {
-                        selectedBox = 6;
-                    } else if(selectedBox == 3) {
-                        selectedBox = 0;
-                    } else if(selectedBox == 5) {
-                        selectedBox = 2;
-                    } else if(selectedBox < (numBoxes - 3)) {
-                        selectedBox += 3;
-                    } else {
-                        selectedBox = selectedBox - (numBoxes - 3);
-                    }
-                } else if(event->type == InputTypeRelease) {
-                    model->down_pressed = false;
-                }
-            }
+            // if(event->key == InputKeyDown) {
+            //     if(event->type == InputTypePress) {
+            //         model->down_pressed = true;
+            //         if(selectedBox == 2) {
+            //             selectedBox = 6;
+            //         } else if(selectedBox == 3) {
+            //             selectedBox = 0;
+            //         } else if(selectedBox == 5) {
+            //             selectedBox = 2;
+            //         } else if(selectedBox < (numBoxes - 3)) {
+            //             selectedBox += 3;
+            //         } else {
+            //             selectedBox = selectedBox - (numBoxes - 3);
+            //         }
+            //     } else if(event->type == InputTypeRelease) {
+            //         model->down_pressed = false;
+            //     }
+            // }
         },
         true);
 
-    // if(event->type == InputTypeLong && event->key == InputKeyBack) {
-    //     // furi_hal_hid_kb_release_all();
-    // } else {
-    //     ldtoypad_process(instance, event);
-    //     consumed = true;
-    // }
-
-    return true;
+    return consumed;
 }
 
-static void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
+void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
     // furi_assert(_model);
     LDToyPadSceneEmulateModel* model = _model;
 
@@ -251,24 +252,71 @@ static void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
 
 void ldtoypad_scene_emulate_enter_callback(void* context) {
     UNUSED(context);
-    // furi_assert(context);
+    furi_assert(context);
 
-    // usb_mode_prev = furi_hal_usb_get_config();
-    // furi_hal_usb_unlock();
-    // furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
+    usb_mode_prev = furi_hal_usb_get_config();
+    furi_hal_usb_unlock();
+    furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
 }
 
 void ldtoypad_scene_emulate_exit_callback(void* context) {
     // UNUSED(context);
     furi_assert(context);
 
-    ldtoypad_scene_emulate_free(context);
+    if(usb_mode_prev != NULL) {
+        furi_hal_usb_set_config(usb_mode_prev, NULL);
+    }
+    free(usb_mode_prev);
+
+    // ldtoypad_scene_emulate_free(context);
 }
 
 // uint32_t selectionMenu_prev_callback(void* context) {
 //     UNUSED(context);
 //     return LDToyPadView_EmulateToyPad;
 // }
+
+static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* context) {
+    // UNUSED(context);
+    LDToyPadSceneEmulateModel* model = context;
+
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontSecondary);
+
+    // canvas_draw_str_aligned(canvas, (128 - 40), 5, AlignCenter, AlignTop, "Select here");
+    canvas_draw_str(canvas, 2, 7, "Emulate ToyPad");
+
+    canvas_draw_icon(canvas, 10, 13, &I_toypad);
+
+    // canvas_set_font(canvas, FontPrimary);
+    // elements_button_left(canvas, "Prev");
+    // elements_button_center(canvas, "OK");
+    // elements_button_right(canvas, "Next");
+
+    if(model->connected) {
+        // elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
+        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "Awaiting");
+    } else {
+        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Not Connected");
+        // if(furi_hal_usb_get_config() == &usb_hid_ldtoypad) {
+        //     model->connected = true;
+        // }
+    }
+
+    // Testing pressing buttons
+    if(model->ok_pressed) {
+        canvas_set_color(canvas, ColorWhite);
+        canvas_draw_box(canvas, 43, 28, 64, 16);
+        canvas_set_color(canvas, ColorBlack);
+        elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
+    }
+}
+
+static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context) {
+    UNUSED(context);
+
+    return ViewSubmenu;
+}
 
 LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc() {
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
@@ -277,11 +325,13 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc() {
     // ldtoypad_view_dispatcher = view_dispatcher;
 
     view_set_context(instance->view, instance);
-    view_allocate_model(instance->view, ViewModelTypeLocking, sizeof(LDToyPadSceneEmulateModel));
-    view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_callback);
+    view_allocate_model(instance->view, ViewModelTypeLockFree, sizeof(LDToyPadSceneEmulateModel));
+    // view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_callback);
+    view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_render_callback);
     view_set_input_callback(instance->view, ldtoypad_scene_emulate_input_callback);
     view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
     view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
+    view_set_previous_callback(instance->view, ldtoypad_scene_emulate_navigation_submenu_callback);
 
     // Allocate the submenu
     // selectionMenu = submenu_alloc();
