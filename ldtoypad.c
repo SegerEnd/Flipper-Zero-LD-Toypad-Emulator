@@ -68,7 +68,6 @@ LDToyPadApp* ldtoypad_app_alloc() {
 
     // View dispatcher
     app->view_dispatcher = view_dispatcher_alloc();
-    view_dispatcher_enable_queue(app->view_dispatcher);
     view_dispatcher_attach_to_gui(app->view_dispatcher, app->gui, ViewDispatcherTypeFullscreen);
 
     // Submenu view
@@ -122,6 +121,8 @@ void ldtoypad_app_free(LDToyPadApp* app) {
     // Notification turn LED blue
     // notification_internal_message(app->notifications, &sequence_reset_blue);
 
+    // Free more things
+
     // Free all the views
     view_dispatcher_remove_view(app->view_dispatcher, LDToyPadView_Submenu);
     submenu_free(app->submenu);
@@ -138,7 +139,18 @@ void ldtoypad_app_free(LDToyPadApp* app) {
 
     // // Close records
     furi_record_close(RECORD_GUI);
-    app->gui = NULL;
+
+    free(app->gui);
+
+    free(app->submenu);
+
+    free(app->dialog);
+
+    free(app->ldtoypad_emulate_view);
+
+    free(app->view_dispatcher);
+
+    // app->gui = NULL;
     // furi_record_close(RECORD_NOTIFICATION);
     // app->notifications = NULL;
 
