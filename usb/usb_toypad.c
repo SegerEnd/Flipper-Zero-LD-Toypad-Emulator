@@ -323,9 +323,12 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // Make from the data a string and save it to the debug_text_ep_in string
     sprintf(debug_text_ep_out, "%s", req);
 
+    uint8_t cmd = req[0]; // Command ID is the first byte
+    // uint8_t cid = req[1];
+    // uint8_t* payload = &req[2]; // Payload starts from the third byte
+
     if(len <= 0) return;
 
-    uint8_t cmd = req[0]; // The first byte is the command ID
     switch(cmd) {
     case CMD_WAKE:
         // handle_cmd_wake(req + 1, res, &res_size);
@@ -340,7 +343,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_READ");
         break;
     default:
-        sprintf(debug_text, "Unknown command");
+        snprintf(debug_text, HID_EP_SZ, "U: %02X", cmd);
         return;
     }
 
