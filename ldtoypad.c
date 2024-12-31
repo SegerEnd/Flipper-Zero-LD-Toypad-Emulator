@@ -15,6 +15,8 @@
 
 #include "ldtoypad.h"
 
+#include "views/EmulateToyPad_scene.h"
+
 // Our application menu has 3 items.  You can add more items if you want.
 typedef enum {
     EmulateToyPadSubmenuIndex,
@@ -79,7 +81,7 @@ static void ldtoypad_submenu_callback(void* context, uint32_t index) {
     LDToyPadApp* app = (LDToyPadApp*)context;
     switch(index) {
     case EmulateToyPadSubmenuIndex:
-        view_dispatcher_switch_to_view(app->view_dispatcher, ViewGame);
+        view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
         break;
     case SettingsSubmenuIndex:
         view_dispatcher_switch_to_view(app->view_dispatcher, ViewConfigure);
@@ -396,7 +398,12 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     model->setting_1_index = setting_1_index;
     model->setting_2_name = setting_2_name;
     model->x = 0;
-    view_dispatcher_add_view(app->view_dispatcher, ViewGame, app->view_game);
+    // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);
+    app->view_scene_emulate = ldtoypad_scene_emulate_alloc();
+    view_dispatcher_add_view(
+        app->view_dispatcher,
+        ViewEmulate,
+        ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
 
     app->widget_about = widget_alloc();
     widget_add_text_scroll_element(
@@ -423,16 +430,29 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, ViewTextInput);
     text_input_free(app->text_input);
     free(app->temp_buffer);
+
     view_dispatcher_remove_view(app->view_dispatcher, ViewAbout);
     widget_free(app->widget_about);
-    view_dispatcher_remove_view(app->view_dispatcher, ViewGame);
+
+    view_dispatcher_remove_view(app->view_dispatcher, ViewEmulate);
     view_free(app->view_game);
+    ldtoypad_scene_emulate_free(app->view_scene_emulate);
+    free(app->view_scene_emulate);
+
     view_dispatcher_remove_view(app->view_dispatcher, ViewConfigure);
     variable_item_list_free(app->variable_item_list_config);
+
     view_dispatcher_remove_view(app->view_dispatcher, ViewSubmenu);
     submenu_free(app->submenu);
+
     view_dispatcher_free(app->view_dispatcher);
     furi_record_close(RECORD_GUI);
+
+    app->gui = NULL;
+    //app->notification = NULL;
+
+    // Remove whatever is left
+    memzero(app, sizeof(LDToyPadApp));
 
     free(app);
 }

@@ -25,7 +25,7 @@ typedef struct {
     VariableItemList* variable_item_list_config; // The configuration screen
 
     // View* view_game; // The main screen
-    View* view_emulator; // The emulator screen
+    LDToyPadSceneEmulate* view_scene_emulate; // The emulator screen
 
     Widget* widget_about; // The about screen
 
@@ -41,7 +41,7 @@ typedef enum {
     ViewSubmenu, // The menu when the app starts
     ViewTextInput, // Input for configuring text settings
     ViewConfigure, // The configuration screen
-    ViewGame, // The main screen
+    ViewEmulate, // The main screen
     ViewAbout, // The about screen with directions, link to social channel, etc.
 } Views;
 
