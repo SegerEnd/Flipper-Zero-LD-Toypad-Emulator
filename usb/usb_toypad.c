@@ -5,9 +5,9 @@
 #include "usb.h"
 #include "usb_hid.h"
 
-#define HID_EP_IN 0x81
+#define HID_EP_IN  0x81
 #define HID_EP_OUT 0x01
-#define HID_EP_SZ 0x20
+#define HID_EP_SZ  0x20
 
 #define HID_INTERVAL 2
 
@@ -186,7 +186,8 @@ static void* hid_set_string_descr(char* str) {
     struct usb_string_descriptor* dev_str_desc = malloc(len * 2 + 2);
     dev_str_desc->bLength = len * 2 + 2;
     dev_str_desc->bDescriptorType = USB_DTYPE_STRING;
-    for(size_t i = 0; i < len; i++) dev_str_desc->wString[i] = str[i];
+    for(size_t i = 0; i < len; i++)
+        dev_str_desc->wString[i] = str[i];
 
     return dev_str_desc;
 }
@@ -377,7 +378,7 @@ static usbd_respond hid_ep_config(usbd_device* dev, uint8_t cfg) {
         usbd_reg_endpoint(dev, HID_EP_IN, hid_txrx_ep_callback);
         usbd_ep_config(dev, HID_EP_OUT, USB_EPTYPE_INTERRUPT, HID_EP_SZ);
         usbd_reg_endpoint(dev, HID_EP_OUT, hid_txrx_ep_callback);
-        usbd_ep_write(dev, HID_EP_SZ, 0, 0);
+        usbd_ep_write(dev, HID_EP_IN, 0, 0);
         // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
         //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
         //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};

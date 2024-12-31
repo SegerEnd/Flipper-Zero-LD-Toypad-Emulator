@@ -178,29 +178,31 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
     return true;
 }
 
-void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* context) {
-    furi_assert(context);
-    LDToyPadSceneEmulateModel* model = context;
+static void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
+    // furi_assert(_model);
+    LDToyPadSceneEmulateModel* model = _model;
 
     canvas_clear(canvas);
     canvas_set_color(canvas, ColorBlack);
 
-    // Draw the toypad layout on the background
-    canvas_draw_icon(canvas, 10, 13, &I_toypad);
+    canvas_draw_str(canvas, 2, 7, "Emulate ToyPad");
 
-    // Get position for the selected box
-    uint8_t x = boxInfo[selectedBox][0];
-    uint8_t y = boxInfo[selectedBox][1];
-    // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
-    if(selectedBox == 1) {
-        canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
-    } else {
-        canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
-    }
+    // // Draw the toypad layout on the background
+    // canvas_draw_icon(canvas, 10, 13, &I_toypad);
 
-    canvas_set_font(canvas, FontPrimary);
+    // // Get position for the selected box
+    // uint8_t x = boxInfo[selectedBox][0];
+    // uint8_t y = boxInfo[selectedBox][1];
+    // // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
+    // if(selectedBox == 1) {
+    //     canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
+    // } else {
+    //     canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
+    // }
 
-    // Displaying the connected USB status
+    // canvas_set_font(canvas, FontPrimary);
+
+    // // Displaying the connected USB status
     if(model->connected) {
         // elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
         elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "Awaiting");
@@ -211,50 +213,49 @@ void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* context) {
         // }
     }
 
-    // Testing pressing buttons
-    if(model->ok_pressed) {
-        canvas_set_color(canvas, ColorWhite);
-        canvas_draw_box(canvas, 43, 28, 64, 16);
-        canvas_set_color(canvas, ColorBlack);
-        elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
-    }
+    // // Testing pressing buttons
+    // // if(model->ok_pressed) {
+    // //     canvas_set_color(canvas, ColorWhite);
+    // //     canvas_draw_box(canvas, 43, 28, 64, 16);
+    // //     canvas_set_color(canvas, ColorBlack);
+    // //     elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
+    // // }
 
-    // Draw a box behind the text hold to exit
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 78, 53, 75, 16);
-    canvas_set_color(canvas, ColorBlack);
-    canvas_set_font(canvas, FontSecondary);
-    elements_multiline_text_aligned(canvas, 80, 55, AlignLeft, AlignTop, "Hold to exit");
+    // // Draw a box behind the text hold to exit
+    // canvas_set_color(canvas, ColorWhite);
+    // canvas_draw_box(canvas, 78, 53, 75, 16);
+    // canvas_set_color(canvas, ColorBlack);
+    // canvas_set_font(canvas, FontSecondary);
+    // elements_multiline_text_aligned(canvas, 80, 55, AlignLeft, AlignTop, "Hold to exit");
+    // canvas_set_color(canvas, ColorWhite);
+    // canvas_draw_box(canvas, 0, 16, 120, 16);
+    // canvas_set_color(canvas, ColorBlack);
+    // canvas_set_font(canvas, FontPrimary);
 
-    // Debugging text for watching the USB endpoints
+    // // from get_debug_text() function display the text
+    // elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
+    // elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
 
-    // Now for USB info also but below the other one
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 16, 120, 16);
-    canvas_set_color(canvas, ColorBlack);
-    canvas_set_font(canvas, FontPrimary);
+    // canvas_set_color(canvas, ColorWhite);
+    // canvas_draw_box(canvas, 0, 32, 120, 16);
+    // canvas_set_color(canvas, ColorBlack);
+    // canvas_set_font(canvas, FontPrimary);
 
-    // from get_debug_text() function display the text
-    elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
-    elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
+    // // say ep_out before the text
+    // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
+    // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
+    // // Debugging text for watching the USB endpoints
 
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 32, 120, 16);
-    canvas_set_color(canvas, ColorBlack);
-    canvas_set_font(canvas, FontPrimary);
-
-    // say ep_out before the text
-    elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
-    elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
+    // // Now for USB info also but below the other one
 }
 
 void ldtoypad_scene_emulate_enter_callback(void* context) {
     UNUSED(context);
     // furi_assert(context);
 
-    usb_mode_prev = furi_hal_usb_get_config();
-    furi_hal_usb_unlock();
-    furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
+    // usb_mode_prev = furi_hal_usb_get_config();
+    // furi_hal_usb_unlock();
+    // furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
 }
 
 void ldtoypad_scene_emulate_exit_callback(void* context) {
@@ -269,15 +270,15 @@ void ldtoypad_scene_emulate_exit_callback(void* context) {
 //     return LDToyPadView_EmulateToyPad;
 // }
 
-LDToyPadEmulateView* ldtoypad_scene_emulate_alloc() {
+LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc() {
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
     instance->view = view_alloc();
 
     // ldtoypad_view_dispatcher = view_dispatcher;
 
-    view_allocate_model(instance->view, ViewModelTypeLocking, sizeof(LDToyPadSceneEmulateModel));
     view_set_context(instance->view, instance);
-    view_set_draw_callback(instance->view, (ViewDrawCallback)ldtoypad_scene_emulate_draw_callback);
+    view_allocate_model(instance->view, ViewModelTypeLocking, sizeof(LDToyPadSceneEmulateModel));
+    view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_callback);
     view_set_input_callback(instance->view, ldtoypad_scene_emulate_input_callback);
     view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
     view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
@@ -293,10 +294,10 @@ LDToyPadEmulateView* ldtoypad_scene_emulate_alloc() {
     return instance;
 }
 
-void ldtoypad_scene_emulate_free(LDToyPadEmulateView* ldtoypad_emulate_view) {
+void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     furi_assert(ldtoypad_emulate_view);
     view_free(ldtoypad_emulate_view->view);
-    view_free(submenu_get_view(selectionMenu));
+    // view_free(submenu_get_view(selectionMenu));
 
     // // Change back profile
     if(usb_mode_prev != NULL) {

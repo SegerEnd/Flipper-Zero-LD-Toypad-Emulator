@@ -34,4 +34,8 @@ typedef struct {
     bool connected;
 
     // uint8_t selectedBox = 0;
+
+    uint32_t setting_1_index; // The team color setting index
+    FuriString* setting_2_name; // The name setting
+    uint8_t x; // The x coordinate
 } LDToyPadSceneEmulateModel;

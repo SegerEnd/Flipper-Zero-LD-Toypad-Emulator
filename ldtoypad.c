@@ -90,7 +90,8 @@ static void ldtoypad_setting_1_change(VariableItem* item) {
     LDToyPadApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
     variable_item_set_current_value_text(item, setting_1_names[index]);
-    LDToyPadSceneEmulateModel* model = view_get_model(app->view_scene_emulate->view);
+    LDToyPadSceneEmulateModel* model =
+        view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
     model->setting_1_index = index;
 }
 
@@ -106,7 +107,7 @@ static void ldtoypad_setting_2_text_updated(void* context) {
     LDToyPadApp* app = (LDToyPadApp*)context;
     bool redraw = true;
     with_view_model(
-        app->view_game,
+        ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
         {
             furi_string_set(model->setting_2_name, app->temp_buffer);
@@ -136,8 +137,8 @@ static void ldtoypad_setting_item_clicked(void* context, uint32_t index) {
         // Copy the current name into the temporary buffer.
         bool redraw = false;
         with_view_model(
-            app->view_game,
-            AppGameModel * model,
+            ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
+            LDToyPadSceneEmulateModel * model,
             {
                 strncpy(
                     app->temp_buffer,
@@ -235,7 +236,8 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     // view_set_custom_callback(app->view_game, ldtoypad_view_game_custom_event_callback);
     // view_allocate_model(app->view_game, ViewModelTypeLockFree, sizeof(AppGameModel));
 
-    LDToyPadSceneEmulateModel* model = view_get_model(app->view_scene_emulate->view);
+    LDToyPadSceneEmulateModel* model =
+        view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
 
     model->setting_1_index = setting_1_index;
     model->setting_2_name = setting_2_name;
@@ -278,7 +280,7 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, ViewEmulate);
     // view_free(app->view_game);
     ldtoypad_scene_emulate_free(app->view_scene_emulate);
-    view_free(app->view_scene_emulate->view);
+    view_free(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
     free(app->view_scene_emulate);
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewConfigure);
@@ -308,10 +310,11 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
 */
 int32_t ldtoypad_app(void* _p) {
     UNUSED(_p);
-
     LDToyPadApp* app = ldtoypad_app_alloc();
+
     view_dispatcher_run(app->view_dispatcher);
 
     ldtoypad_app_free(app);
+
     return 0;
 }
