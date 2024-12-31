@@ -2,8 +2,6 @@
 
 #include "../ldtoypad.h"
 
-#include "../usb/usb_toypad.h"
-
 #include <furi.h>
 #include <furi_hal.h>
 
@@ -115,64 +113,64 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                 }
             }
             // make user loop through boxes with InputKeyLeft, InputKeyRight, InputKeyUp, InputKeyDown
-            // if(event->key == InputKeyLeft) {
-            //     if(event->type == InputTypePress) {
-            //         model->left_pressed = true;
-            //         if(selectedBox == 0) {
-            //             selectedBox = numBoxes;
-            //         }
-            //         selectedBox--;
-            //     } else if(event->type == InputTypeRelease) {
-            //         model->left_pressed = false;
-            //     }
-            // }
-            // if(event->key == InputKeyRight) {
-            //     if(event->type == InputTypePress) {
-            //         model->right_pressed = true;
-            //         selectedBox++;
-            //         if(selectedBox >= numBoxes) {
-            //             selectedBox = 0;
-            //         }
-            //     } else if(event->type == InputTypeRelease) {
-            //         model->right_pressed = false;
-            //     }
-            // }
-            // if(event->key == InputKeyUp) {
-            //     if(event->type == InputTypePress) {
-            //         model->up_pressed = true;
-            //         if(selectedBox == 0) {
-            //             selectedBox = 3;
-            //         } else if(selectedBox >= 4) {
-            //             selectedBox -= 4;
-            //         } else {
-            //             selectedBox = (numBoxes - 3) + selectedBox;
-            //         }
-            //         if(selectedBox >= numBoxes) {
-            //             selectedBox = 0;
-            //         }
-            //     } else if(event->type == InputTypeRelease) {
-            //         model->up_pressed = false;
-            //     }
-            // }
+            if(event->key == InputKeyLeft) {
+                if(event->type == InputTypePress) {
+                    model->left_pressed = true;
+                    if(selectedBox == 0) {
+                        selectedBox = numBoxes;
+                    }
+                    selectedBox--;
+                } else if(event->type == InputTypeRelease) {
+                    model->left_pressed = false;
+                }
+            }
+            if(event->key == InputKeyRight) {
+                if(event->type == InputTypePress) {
+                    model->right_pressed = true;
+                    selectedBox++;
+                    if(selectedBox >= numBoxes) {
+                        selectedBox = 0;
+                    }
+                } else if(event->type == InputTypeRelease) {
+                    model->right_pressed = false;
+                }
+            }
+            if(event->key == InputKeyUp) {
+                if(event->type == InputTypePress) {
+                    model->up_pressed = true;
+                    if(selectedBox == 0) {
+                        selectedBox = 3;
+                    } else if(selectedBox >= 4) {
+                        selectedBox -= 4;
+                    } else {
+                        selectedBox = (numBoxes - 3) + selectedBox;
+                    }
+                    if(selectedBox >= numBoxes) {
+                        selectedBox = 0;
+                    }
+                } else if(event->type == InputTypeRelease) {
+                    model->up_pressed = false;
+                }
+            }
 
-            // if(event->key == InputKeyDown) {
-            //     if(event->type == InputTypePress) {
-            //         model->down_pressed = true;
-            //         if(selectedBox == 2) {
-            //             selectedBox = 6;
-            //         } else if(selectedBox == 3) {
-            //             selectedBox = 0;
-            //         } else if(selectedBox == 5) {
-            //             selectedBox = 2;
-            //         } else if(selectedBox < (numBoxes - 3)) {
-            //             selectedBox += 3;
-            //         } else {
-            //             selectedBox = selectedBox - (numBoxes - 3);
-            //         }
-            //     } else if(event->type == InputTypeRelease) {
-            //         model->down_pressed = false;
-            //     }
-            // }
+            if(event->key == InputKeyDown) {
+                if(event->type == InputTypePress) {
+                    model->down_pressed = true;
+                    if(selectedBox == 2) {
+                        selectedBox = 6;
+                    } else if(selectedBox == 3) {
+                        selectedBox = 0;
+                    } else if(selectedBox == 5) {
+                        selectedBox = 2;
+                    } else if(selectedBox < (numBoxes - 3)) {
+                        selectedBox += 3;
+                    } else {
+                        selectedBox = selectedBox - (numBoxes - 3);
+                    }
+                } else if(event->type == InputTypeRelease) {
+                    model->down_pressed = false;
+                }
+            }
         },
         true);
 
@@ -252,11 +250,12 @@ void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
 
 void ldtoypad_scene_emulate_enter_callback(void* context) {
     UNUSED(context);
-    furi_assert(context);
+    // furi_assert(context);
 
     usb_mode_prev = furi_hal_usb_get_config();
     furi_hal_usb_unlock();
     furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
+    // get usb device
 }
 
 void ldtoypad_scene_emulate_exit_callback(void* context) {
@@ -280,15 +279,39 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // UNUSED(context);
     LDToyPadSceneEmulateModel* model = context;
 
+    // when the usb device is not set in modek, set it
+    if(model->usbDevice == NULL) {
+        model->usbDevice = get_usb_device();
+        model->connection_status = "USB device setting...";
+    }
+    if(model->usbDevice == NULL) {
+        model->connection_status = "USB not yet connected";
+    } else if(!model->connected) {
+        model->connection_status = "Trying to connect USB";
+    }
+
+    // poll the USB status here
+    // usbd_poll(model->usbDevice);
+
     canvas_clear(canvas);
     canvas_set_font(canvas, FontSecondary);
 
     // canvas_draw_str_aligned(canvas, (128 - 40), 5, AlignCenter, AlignTop, "Select here");
-    canvas_draw_str(canvas, 2, 7, "Emulate ToyPad");
+    // canvas_draw_str(canvas, 2, 7, "Emulate ToyPad");
 
     canvas_draw_icon(canvas, 10, 13, &I_toypad);
 
-    // canvas_set_font(canvas, FontPrimary);
+    // Get position for the selected box
+    uint8_t x = boxInfo[selectedBox][0];
+    uint8_t y = boxInfo[selectedBox][1];
+    // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
+    if(selectedBox == 1) {
+        canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
+    } else {
+        canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
+    }
+
+    canvas_set_font(canvas, FontPrimary);
     // elements_button_left(canvas, "Prev");
     // elements_button_center(canvas, "OK");
     // elements_button_right(canvas, "Next");
@@ -297,7 +320,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         // elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
         elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "Awaiting");
     } else {
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Not Connected");
+        elements_multiline_text_aligned(
+            canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
         // if(furi_hal_usb_get_config() == &usb_hid_ldtoypad) {
         //     model->connected = true;
         // }

@@ -21,6 +21,8 @@ int32_t hid_toypad_read_IN();
 char* get_debug_text_ep_in();
 char* get_debug_text_ep_out();
 
+usbd_device* get_usb_device();
+
 #ifdef __cplusplus
 }
 #endif

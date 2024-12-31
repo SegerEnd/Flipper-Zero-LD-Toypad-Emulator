@@ -5,6 +5,8 @@
 #include "usb.h"
 #include "usb_hid.h"
 
+#include "../views/EmulateToyPad_scene.h"
+
 #define HID_EP_IN  0x81
 #define HID_EP_OUT 0x01
 #define HID_EP_SZ  0x20
@@ -192,11 +194,16 @@ static void* hid_set_string_descr(char* str) {
     return dev_str_desc;
 }
 
+usbd_device* get_usb_device() {
+    return usb_dev;
+}
+
 static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     UNUSED(intf);
     FuriHalUsbHidConfig* cfg = (FuriHalUsbHidConfig*)ctx;
     if(hid_semaphore == NULL) hid_semaphore = furi_semaphore_alloc(1, 1);
     usb_dev = dev;
+
     // hid_report.keyboard.report_id = ReportIdKeyboard;
     // hid_report.mouse.report_id = ReportIdMouse;
     // hid_report.consumer.report_id = ReportIdConsumer;

@@ -4,6 +4,8 @@
 #include <gui/view_dispatcher.h>
 #include <gui/modules/submenu.h>
 
+#include "../usb/usb_toypad.h"
+
 typedef struct LDToyPadSceneEmulate LDToyPadSceneEmulate;
 
 // LDToyPadEmulateView* usb_hid_dirpad_alloc(); // This is the original old function name from: https://github.com/huuck/FlipperZeroUSBKeyboard/blob/main/views/usb_hid_dirpad.h
@@ -32,8 +34,11 @@ typedef struct {
     bool ok_pressed;
     bool back_pressed;
     bool connected;
+    char* connection_status;
 
     // uint8_t selectedBox = 0;
+
+    usbd_device* usbDevice;
 
     uint32_t setting_1_index; // The team color setting index
     FuriString* setting_2_name; // The name setting
