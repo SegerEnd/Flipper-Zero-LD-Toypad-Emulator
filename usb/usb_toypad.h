@@ -14,6 +14,20 @@ extern FuriHalUsbInterface usb_hid_ldtoypad;
 //     HidRequest,
 // } HidEvent;
 
+typedef struct {
+    unsigned char type;
+    unsigned char len;
+    unsigned char payload[HID_EP_SZ];
+    unsigned char chksum;
+} Frame;
+
+typedef struct {
+    Frame frame;
+    unsigned char cmd;
+    unsigned char cid;
+    unsigned char payload[HID_EP_SZ - 2]; // Assuming the payload is smaller than HID_EP_SZ
+} Request;
+
 int32_t hid_toypad_read_IN();
 // int32_t hid_toypad_read_OUT();
 // uint32_t hid_ldtoypad_usbinfo();
