@@ -40,6 +40,41 @@
 #define USB_EP0_SIZE 64
 PLACE_IN_SECTION("MB_MEM2") static uint32_t ubuf[0x20];
 
+// Function to parse a Frame into a Request
+void parse_request(Request* request, Frame* f) {
+    if(request == NULL || f == NULL) return;
+
+    request->frame = *f;
+    uint8_t* p = f->payload;
+
+    request->cmd = p[0];
+    request->cid = p[1];
+    memcpy(request->payload, p + 2, f->len - 2); // Copy payload, excluding cmd and cid
+}
+
+// Function to build a Frame from a Request
+// int build_request(Request* request, uint8_t* out_buf) {
+//     if(request == NULL || out_buf == NULL) return -1;
+
+//     // Build the frame from the Request
+//     uint8_t b[HID_EP_SZ + 2];
+//     b[0] = request->cmd;
+//     b[1] = request->cid;
+//     memcpy(b + 2, request->payload, request->frame.len - 2);
+
+//     // Set Frame type and payload
+//     request->frame.type = 0x55;
+//     request->frame.len = request->frame.len; // Should be payload length + 2 (cmd, cid)
+//     memcpy(request->frame.payload, b, request->frame.len);
+
+//     // Assuming checksum is calculated similarly
+//     request->frame.chksum = 0; // TODO: Add checksum calculation here
+
+//     // Copy the full frame to the output buffer
+//     memcpy(out_buf, &request->frame, sizeof(Frame));
+//     return sizeof(Frame); // Return size of the built frame
+// }
+
 // Function to parse a Frame from a buffer
 void parse_frame(Frame* frame, unsigned char* buf, int len) {
     UNUSED(len);
@@ -267,10 +302,8 @@ ToyPadEmu* emulator;
 ToyPadEmu* get_emulator() {
     return emulator;
 }
-void set_emulator(ToyPadEmu* emu) {
-    if(emu == NULL) return;
-
-    emulator = emu;
+void alloc_emulator() {
+    if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
 }
 
 // Generate random UID
@@ -288,24 +321,25 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     emu->token_count = 0;
 
     // Set default TEA key
-    uint8_t default_tea_key[16] = {
-        0x55,
-        0xFE,
-        0xF6,
-        0xB0,
-        0x62,
-        0xBF,
-        0x0B,
-        0x41,
-        0xC9,
-        0xB3,
-        0x7C,
-        0xB4,
-        0x97,
-        0x3E,
-        0x29,
-        0x7B};
-    memcpy(emu->tea_key, default_tea_key, 16);
+    // uint8_t default_tea_key[16] = {
+    //     0x55,
+    //     0xFE,
+    //     0xF6,
+    //     0xB0,
+    //     0x62,
+    //     0xBF,
+    //     0x0B,
+    //     0x41,
+    //     0xC9,
+    //     0xB3,
+    //     0x7C,
+    //     0xB4,
+    //     0x97,
+    //     0x3E,
+    //     0x29,
+    //     0x7B};
+
+    // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
 // Add a token to a pad
@@ -350,6 +384,8 @@ static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     FuriHalUsbHidConfig* cfg = (FuriHalUsbHidConfig*)ctx;
     if(hid_semaphore == NULL) hid_semaphore = furi_semaphore_alloc(1, 1);
     usb_dev = dev;
+
+    alloc_emulator();
 
     // hid_report.keyboard.report_id = ReportIdKeyboard;
     // hid_report.mouse.report_id = ReportIdMouse;
@@ -399,6 +435,8 @@ static void hid_deinit(usbd_device* dev) {
 
     free(usb_hid_ldtoypad.str_manuf_descr);
     free(usb_hid_ldtoypad.str_prod_descr);
+
+    free(emulator);
 }
 
 static void hid_on_wakeup(usbd_device* dev) {
@@ -508,10 +546,14 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     }
 
     Request request;
-    request.cmd = frame.payload[0];
-    request.cid = frame.payload[1];
-    request.payload_len = frame.len - 2;
-    memcpy(request.payload, frame.payload + 2, request.payload_len);
+
+    // parse request
+    parse_request(&request, &frame);
+
+    // request.cmd = frame.payload[0];
+    // request.cid = frame.payload[1];
+    // request.payload_len = frame.len - 2;
+    // memcpy(request.payload, frame.payload + 2, request.payload_len);
 
     Response response;
     response.cid = request.cid;
@@ -521,6 +563,28 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     case CMD_WAKE:
         // handle_cmd_wake(req + 1, res, &res_size);
         sprintf(debug_text, "CMD_WAKE");
+
+        ToyPadEmu_init(emulator); // Initialize the emulator / setup tea key
+
+        uint8_t default_tea_key[16] = {
+            0x55,
+            0xFE,
+            0xF6,
+            0xB0,
+            0x62,
+            0xBF,
+            0x0B,
+            0x41,
+            0xC9,
+            0xB3,
+            0x7C,
+            0xB4,
+            0x97,
+            0x3E,
+            0x29,
+            0x7B};
+
+        memcpy(emulator->tea_key, default_tea_key, sizeof(emulator->tea_key));
 
         // int8_t wake_payload[HID_EP_SZ] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20,
         //                                   0x4c, 0x45, 0x47, 0x4f, 0x20, 0x32, 0x30, 0x31,
@@ -553,10 +617,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_MODEL");
         break;
     case CMD_SEED:
-        // sprintf(debug_text, "CMD_SEED");
+        sprintf(debug_text, "CMD_SEED");
 
         // decrypt the request.payload with the TEA
-        tea_decrypt(request.payload, emulator->tea_key, request.payload);
+        // tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
         // // converted Javascript code to C
         // // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
@@ -585,7 +649,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_CHAL");
         break;
     case CMD_COL:
-        // sprintf(debug_text, "CMD_COL");
+        sprintf(debug_text, "CMD_COL");
         break;
     case CMD_GETCOL:
         sprintf(debug_text, "CMD_GETCOL");

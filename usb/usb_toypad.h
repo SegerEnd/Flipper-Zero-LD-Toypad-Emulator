@@ -26,7 +26,7 @@ typedef struct {
 typedef struct {
     unsigned char type;
     unsigned char len;
-    unsigned char payload[HID_EP_SZ];
+    unsigned char payload[HID_EP_SZ - 2];
     unsigned char chksum;
 } Frame;
 

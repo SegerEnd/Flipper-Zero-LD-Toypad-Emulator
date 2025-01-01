@@ -70,7 +70,7 @@ void tea_encrypt(const uint8_t* buffer, const uint8_t* key, uint8_t* out) {
 
 // Decryption function
 void tea_decrypt(const uint8_t* buffer, const uint8_t* key, uint8_t* out) {
-    if(!buffer || !key || !out) return;
+    furi_assert(key);
 
     uint32_t v[2] = {bytes_to_uint32(buffer), bytes_to_uint32(buffer + 4)};
     uint32_t k[4] = {
@@ -82,10 +82,6 @@ void tea_decrypt(const uint8_t* buffer, const uint8_t* key, uint8_t* out) {
     // dechiper the buffer
     uint32_t result[2];
     decipher(v, k, result);
-
-    // if(k[0] == 0 || v[0] == 0) {
-    //     return;
-    // }
 
     if(!out || out == NULL) {
         set_debug_text("Error: output pointer is NULL");
