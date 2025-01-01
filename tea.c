@@ -17,7 +17,7 @@ void flipBytes(uint8_t* buf, size_t length, uint8_t* out) {
     }
 }
 
-void encrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
+void tea_encrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
     if(!key) {
         return;
     }
@@ -60,7 +60,7 @@ void encrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
     out[7] = (uint8_t)v1;
 }
 
-void decrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
+void tea_decrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
     if(!key) {
         return;
     }

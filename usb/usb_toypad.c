@@ -518,9 +518,8 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     case CMD_SEED:
         sprintf(debug_text, "CMD_SEED");
 
-        // decrypt the payload with the TEA
-        uint32_t* payload = (uint32_t*)request.payload;
-        tea_decrypt(payload, emulator->tea_key);
+        // decrypt the request.payload with the TEA
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
         // unsigned char decrypted_payload[sizeof(request.payload)];
         // tea_decrypt(request.payload, emulator->tea_key, decrypted_payload);
@@ -533,6 +532,9 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
                         request.payload[7] << 24;
+
+        UNUSED(seed);
+        UNUSED(conf);
 
         break;
     case CMD_WRITE:
