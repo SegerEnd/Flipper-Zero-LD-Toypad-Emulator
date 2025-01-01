@@ -1,12 +1,27 @@
 #pragma once
 #include <furi.h>
 #include <furi_hal.h>
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define HID_EP_SZ 0x20
+
+typedef struct {
+    int index;
+    int pad;
+    char uid[8];
+    char token[16];
+} Token;
+
+typedef struct {
+    Token tokens[10];
+    int token_count;
+    void (*transport_write)(const char* data);
+    uint8_t tea_key[16];
+} ToyPadEmu;
 
 typedef struct {
     unsigned char type;
@@ -33,6 +48,15 @@ typedef struct {
     unsigned char payload[HID_EP_SZ - 2];
     int payload_len;
 } Request;
+
+// Event structure
+typedef struct {
+    Frame* frame;
+    unsigned char pad;
+    unsigned char index;
+    unsigned char dir;
+    unsigned char* uid;
+} Event;
 
 extern FuriHalUsbInterface usb_hid_ldtoypad;
 

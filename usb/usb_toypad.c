@@ -7,11 +7,25 @@
 
 #include "../views/EmulateToyPad_scene.h"
 
-#define CMD_WAKE  0xB0
-#define CMD_READ  0xD2
-#define CMD_MODEL 0xD4
-#define CMD_SEED  0xB1
-#define CMD_CHAL  0xB3
+// Define all the possible commands
+#define CMD_WAKE   0xB0
+#define CMD_READ   0xD2
+#define CMD_MODEL  0xD4
+#define CMD_SEED   0xB1
+#define CMD_CHAL   0xB3
+#define CMD_COL    0xC0
+#define CMD_GETCOL 0xC1
+#define CMD_FADE   0xC2
+#define CMD_FLASH  0xC3
+#define CMD_FADRD  0xC4
+#define CMD_FADAL  0xC6
+#define CMD_FLSAL  0xC7
+#define CMD_COLAL  0xC8
+#define CMD_TGLST  0xD0
+#define CMD_WRITE  0xD3
+#define CMD_PWD    0xE1
+#define CMD_ACTIVE 0xE5
+#define CMD_LEDSQ  0xFF
 
 #define HID_EP_IN  0x81
 #define HID_EP_OUT 0x01
@@ -247,6 +261,88 @@ usbd_device* get_usb_device() {
     return usb_dev;
 }
 
+ToyPadEmu* emulator;
+ToyPadEmu* get_emulator() {
+    return emulator;
+}
+void set_emulator(ToyPadEmu* emu) {
+    if(emu == NULL) return;
+
+    emulator = emu;
+}
+
+// Generate random UID
+void ToyPadEmu_randomUID(char* uid) {
+    srand(furi_get_tick()); // Set the seed to random value
+    uid[0] = 0x04; // vendor id = NXP
+    uid[6] = 0x80; // Set last byte to 0x80
+    for(int i = 1; i < 6; i++) {
+        uid[i] = rand() % 256;
+    }
+    uid[7] = '\0'; // null terminate
+}
+
+void ToyPadEmu_init(ToyPadEmu* emu) {
+    emu->token_count = 0;
+
+    // Set default TEA key
+    uint8_t default_tea_key[16] = {
+        0x55,
+        0xFE,
+        0xF6,
+        0xB0,
+        0x62,
+        0xBF,
+        0x0B,
+        0x41,
+        0xC9,
+        0xB3,
+        0x7C,
+        0xB4,
+        0x97,
+        0x3E,
+        0x29,
+        0x7B};
+    memcpy(emu->tea_key, default_tea_key, 16);
+}
+
+// Add a token to a pad
+bool ToyPadEmu_place(
+    ToyPadEmu* emu,
+    const uint8_t* token_data,
+    int pad,
+    int index,
+    const char* uid) {
+    if(emu->token_count > 7) {
+        return false;
+    }
+
+    Token new_token;
+    new_token.index = index;
+    new_token.pad = pad;
+    strncpy(new_token.uid, uid, sizeof(new_token.uid));
+    memcpy(new_token.token, token_data, sizeof(new_token.token));
+
+    emu->tokens[emu->token_count++] = new_token;
+
+    return true;
+}
+
+// Remove a token
+bool ToyPadEmu_remove(ToyPadEmu* emu, int index) {
+    for(int i = 0; i < emu->token_count; i++) {
+        if(emu->tokens[i].index == index) {
+            // Shift tokens
+            for(int j = i; j < emu->token_count - 1; j++) {
+                emu->tokens[j] = emu->tokens[j + 1];
+            }
+            emu->token_count--;
+            return true;
+        }
+    }
+    return false;
+}
+
 static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     UNUSED(intf);
     FuriHalUsbHidConfig* cfg = (FuriHalUsbHidConfig*)ctx;
@@ -392,6 +488,22 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         //                                   0x4c, 0x45, 0x47, 0x4f, 0x20, 0x32, 0x30, 0x31,
         //                                   0x34, 0xf7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         //                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        // unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20,
+        //                                          0x4c, 0x45, 0x47, 0x4f, 0x20, 0x32, 0x30, 0x31,
+        //                                          0x34, 0xf7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+        unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x19, 0x01, 0x00, 0x2f, 0x02, 0x01, 0x02,
+                                                 0x02, 0x04, 0x02, 0xf5, 0x00, 0x19, 0x8b, 0x54,
+                                                 0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
+                                                 0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
+
+        // furi_delay_ms(50);
+
+        usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
+
+        // response.payload_len = sizeof(wake_payload);
+        // memcpy(response.payload, wake_payload, response.payload_len);
 
         break;
     case CMD_READ:
@@ -400,22 +512,73 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         break;
     case CMD_MODEL:
         // handle_cmd_model(req + 1, res, &res_size);
-        sprintf(debug_text, "CMD_READ");
+        sprintf(debug_text, "CMD_MODEL");
+        break;
+    case CMD_SEED:
+        sprintf(debug_text, "CMD_SEED");
+        break;
+    case CMD_WRITE:
+        sprintf(debug_text, "CMD_WRITE");
+        break;
+    case CMD_CHAL:
+        sprintf(debug_text, "CMD_CHAL");
+        break;
+    case CMD_COL:
+        sprintf(debug_text, "CMD_COL");
+        break;
+    case CMD_GETCOL:
+        sprintf(debug_text, "CMD_GETCOL");
+        break;
+    case CMD_FADE:
+        sprintf(debug_text, "CMD_FADE");
+        break;
+    case CMD_FLASH:
+        sprintf(debug_text, "CMD_FLASH");
+        break;
+    case CMD_FADRD:
+        sprintf(debug_text, "CMD_FADRD");
+        break;
+    case CMD_FADAL:
+        sprintf(debug_text, "CMD_FADAL");
+        break;
+    case CMD_FLSAL:
+        sprintf(debug_text, "CMD_FLSAL");
+        break;
+    case CMD_COLAL:
+        sprintf(debug_text, "CMD_COLAL");
+        break;
+    case CMD_TGLST:
+        sprintf(debug_text, "CMD_TGLST");
+        break;
+    case CMD_PWD:
+        sprintf(debug_text, "CMD_PWD");
+        break;
+    case CMD_ACTIVE:
+        sprintf(debug_text, "CMD_ACTIVE");
+        break;
+    case CMD_LEDSQ:
+        sprintf(debug_text, "CMD_LEDSQ");
         break;
     default:
         snprintf(debug_text, HID_EP_SZ, "U: %02X", request.cmd);
+        snprintf(debug_text, HID_EP_SZ, "ERR: %02X", request.cmd);
+        return;
+    }
+
+    // check if the response is empty
+    if(response.payload_len == 0) {
+        // sprintf(debug_text, "Empty payload_len");
         return;
     }
 
     // Make the response
     unsigned char res_buf[HID_EP_SZ];
 
-    // check if the response is empty
-    if(response.payload_len == 0) return;
-
     int res_len = build_response(&response, res_buf);
 
-    if(res_len <= 0) return;
+    if(res_len <= 0) {
+        return;
+    }
 
     // Send the response
     usbd_ep_write(dev, HID_EP_IN, res_buf, res_len);
