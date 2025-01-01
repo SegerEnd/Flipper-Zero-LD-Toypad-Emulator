@@ -302,9 +302,8 @@ ToyPadEmu* emulator;
 ToyPadEmu* get_emulator() {
     return emulator;
 }
-void alloc_emulator() {
-    if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
-}
+
+Burtle* burtle; // Define the Burtle object
 
 // Generate random UID
 void ToyPadEmu_randomUID(char* uid) {
@@ -385,7 +384,8 @@ static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     if(hid_semaphore == NULL) hid_semaphore = furi_semaphore_alloc(1, 1);
     usb_dev = dev;
 
-    alloc_emulator();
+    if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
+    if(burtle == NULL) burtle = malloc(sizeof(Burtle));
 
     // hid_report.keyboard.report_id = ReportIdKeyboard;
     // hid_report.mouse.report_id = ReportIdMouse;
@@ -437,6 +437,7 @@ static void hid_deinit(usbd_device* dev) {
     free(usb_hid_ldtoypad.str_prod_descr);
 
     free(emulator);
+    free(burtle);
 }
 
 static void hid_on_wakeup(usbd_device* dev) {
@@ -488,11 +489,14 @@ void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(event);
     // Handle the IN endpoint
 
-    int len = usbd_ep_read(dev, HID_EP_IN, debug_text_ep_in, HID_EP_SZ);
+    unsigned char in_buf[HID_EP_SZ] = {0};
+
+    int len = usbd_ep_read(dev, HID_EP_IN, in_buf, HID_EP_SZ);
+
+    sprintf(debug_text_ep_in, "%s", in_buf);
+
     if(len <= 0) return;
 }
-
-Burtle* burtle; // Define the Burtle object
 
 // Function to convert a little-endian to uint32_t
 uint32_t readUInt32LE(uint8_t* buffer) {
@@ -620,26 +624,23 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_SEED");
 
         // decrypt the request.payload with the TEA
-        // tea_decrypt(request.payload, emulator->tea_key, request.payload);
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
-        // // converted Javascript code to C
-        // // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
-        // uint32_t seed = request.payload[0] | request.payload[1] << 8 | request.payload[2] << 16 |
-        //                 request.payload[3] << 24;
+        // converted Javascript code to C
+        // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
+        uint32_t seed = request.payload[0] | request.payload[1] << 8 | request.payload[2] << 16 |
+                        request.payload[3] << 24;
 
-        // uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
-        //                 request.payload[7] << 24;
+        uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
+                        request.payload[7] << 24;
 
-        // burtle_init(burtle, seed);
+        burtle_init(burtle, seed);
 
-        // memset(request.payload, 0, 8); // Fill the payload with 0 with a length of 8
-        // writeUInt32BE(request.payload, conf); // Write the conf to the payload
+        memset(response.payload, 0, 8); // Fill the payload with 0 with a length of 8
+        writeUInt32BE(response.payload, conf); // Write the conf to the payload
 
-        // // UNUSED(seed);
-        // UNUSED(conf);
-
-        // // encrypt the request.payload with the TEA
-        // tea_encrypt(request.payload, emulator->tea_key, request.payload);
+        // encrypt the request.payload with the TEA
+        tea_encrypt(response.payload, emulator->tea_key, response.payload);
 
         break;
     case CMD_WRITE:
@@ -691,7 +692,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     }
 
     // check if the response is empty
-    if(response.payload_len == 0) {
+    if(sizeof(response.payload) == 0) {
         // sprintf(debug_text, "Empty payload_len");
         return;
     }
@@ -703,14 +704,16 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // Make the response
     unsigned char res_buf[HID_EP_SZ];
 
-    int res_len = build_response(&response, res_buf);
+    build_response(&response, res_buf);
+    int res_len = build_frame(&response.frame, res_buf);
 
     if(res_len <= 0) {
+        sprintf(debug_text, "res_len is 0");
         return;
     }
 
     // Send the response
-    usbd_ep_write(dev, HID_EP_IN, res_buf, res_len);
+    usbd_ep_write(dev, HID_EP_IN, res_buf, sizeof(res_buf));
 }
 
 /* Configure endpoints */
