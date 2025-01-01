@@ -15,7 +15,6 @@
 
 #define HID_EP_IN  0x81
 #define HID_EP_OUT 0x01
-#define HID_EP_SZ  0x20
 
 #define HID_INTERVAL 2
 
@@ -24,6 +23,50 @@
 
 #define USB_EP0_SIZE 64
 PLACE_IN_SECTION("MB_MEM2") static uint32_t ubuf[0x20];
+
+// Function to parse a Frame from a buffer
+void parse_frame(Frame* frame, unsigned char* buf, int len) {
+    UNUSED(len);
+    frame->type = buf[0];
+    frame->len = buf[1];
+    memcpy(frame->payload, buf + 2, frame->len);
+    frame->chksum = buf[frame->len + 2];
+}
+
+// Function to calculate checksum
+unsigned char calculate_checksum(unsigned char* buf, int len) {
+    unsigned char sum = 0;
+    for(int i = 0; i < len; i++) {
+        sum += buf[i];
+    }
+    return sum % 256;
+}
+
+// Function to build a Frame into a buffer
+int build_frame(Frame* frame, unsigned char* buf) {
+    buf[0] = frame->type;
+    buf[1] = frame->len;
+    memcpy(buf + 2, frame->payload, frame->len);
+    buf[frame->len + 2] = calculate_checksum(buf, frame->len + 2);
+    return frame->len + 3;
+}
+
+// Function to parse a Response from a Frame
+void parse_response(Response* response, Frame* frame) {
+    response->frame = *frame;
+    response->cid = frame->payload[0];
+    response->payload_len = frame->len - 1;
+    memcpy(response->payload, frame->payload + 1, response->payload_len);
+}
+
+// Function to build a Response into a Frame
+int build_response(Response* response, unsigned char* buf) {
+    response->frame.type = 0x55;
+    response->frame.len = response->payload_len + 1;
+    response->frame.payload[0] = response->cid;
+    memcpy(response->frame.payload + 1, response->payload, response->payload_len);
+    return build_frame(&response->frame, buf);
+}
 
 /* String descriptors */
 enum UsbDevDescStr {
@@ -313,26 +356,43 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(ep);
     UNUSED(event);
 
-    uint8_t req[HID_EP_SZ] = {0};
-    // uint8_t res[HID_EP_SZ] = {0};
-    // size_t res_size = 0;
+    unsigned char req_buf[HID_EP_SZ] = {0};
 
     // Read data from the OUT endpoint
-    int len = usbd_ep_read(dev, HID_EP_OUT, req, HID_EP_SZ);
+    int32_t len = usbd_ep_read(dev, HID_EP_OUT, req_buf, HID_EP_SZ);
 
     // Make from the data a string and save it to the debug_text_ep_in string
-    sprintf(debug_text_ep_out, "%s", req);
-
-    uint8_t cmd = req[0]; // Command ID is the first byte
-    // uint8_t cid = req[1];
-    // uint8_t* payload = &req[2]; // Payload starts from the third byte
+    sprintf(debug_text_ep_out, "%s", req_buf);
 
     if(len <= 0) return;
 
-    switch(cmd) {
+    // uint8_t cmd = req_buf[2]; // Command ID
+    // uint8_t cid = req[1];
+    // uint8_t* payload = &req[3]; // Payload starts from the third byte
+
+    Frame frame;
+    parse_frame(&frame, req_buf, len);
+
+    Request request;
+    request.cmd = frame.payload[0];
+    request.cid = frame.payload[1];
+    request.payload_len = frame.len - 2;
+    memcpy(request.payload, frame.payload + 2, request.payload_len);
+
+    Response response;
+    response.cid = request.cid;
+    response.payload_len = 0;
+
+    switch(request.cmd) {
     case CMD_WAKE:
         // handle_cmd_wake(req + 1, res, &res_size);
         sprintf(debug_text, "CMD_WAKE");
+
+        // int8_t wake_payload[HID_EP_SZ] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20,
+        //                                   0x4c, 0x45, 0x47, 0x4f, 0x20, 0x32, 0x30, 0x31,
+        //                                   0x34, 0xf7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        //                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
         break;
     case CMD_READ:
         // handle_cmd_read(req + 1, res, &res_size);
@@ -343,12 +403,22 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_READ");
         break;
     default:
-        snprintf(debug_text, HID_EP_SZ, "U: %02X", cmd);
+        snprintf(debug_text, HID_EP_SZ, "U: %02X", request.cmd);
         return;
     }
 
-    // Write the response to the IN endpoint
-    // usbd_ep_write(dev, HID_EP_IN, res, res_size);
+    // Make the response
+    unsigned char res_buf[HID_EP_SZ];
+
+    // check if the response is empty
+    if(response.payload_len == 0) return;
+
+    int res_len = build_response(&response, res_buf);
+
+    if(res_len <= 0) return;
+
+    // Send the response
+    usbd_ep_write(dev, HID_EP_IN, res_buf, res_len);
 }
 
 /* Configure endpoints */
@@ -432,59 +502,7 @@ static usbd_respond hid_control(usbd_device* dev, usbd_ctlreq* req, usbd_rqc_cal
     return usbd_fail;
 }
 
-// Function only to test right now this is not in the final code
-// int32_t hid_toypad_send() {
-//     // Check if the device is connected then write the packet
-//     if(hid_connected) {
-//         // int32_t result = usbd_ep_write(usb_dev, HID_EP_IN, &data, sizeof(data));
 //         int8_t data[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
 //                            0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
 //                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-//         int32_t result = usbd_ep_write(usb_dev, HID_EP_IN, data, sizeof(data));
-//         return result;
-//     }
-//     return -1;
-// }
-
-int32_t hid_toypad_read_IN() {
-    uint16_t len = 32;
-    uint8_t data[len]; // declare data as an array of the appropriate size
-    // Check if the device is connected then read the packet
-    // if(hid_connected) {
-    int32_t result = usbd_ep_read(usb_dev, HID_EP_IN, data, len);
-
-    // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-    //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-    //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
-
-    return result;
-    // }
-    // return 888;
-}
-
-int32_t hid_toypad_read_OUT() {
-    uint16_t len = 32;
-    uint8_t data[len]; // declare data as an array of the appropriate size
-    // Check if the device is connected then read the packet
-    // if(hid_connected) {
-    int32_t result =
-        usbd_ep_read(usb_dev, HID_EP_OUT, data, len); // pass data as the buffer to read into
-
-    // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-    //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-    //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
-
-    return result;
-    // }
-    // return 999;
-}
-
-// uint32_t hid_ldtoypad_usbinfo() {
-//     // if(hid_connected) {
-//     //     return usbd_getinfo(usb_dev);
-//     // }
-//     // return 888;
-//     return usbd_getinfo(usb_dev);
-// }
+//         int32_t length = usbd_ep_write(usb_dev, HID_EP_IN, data, sizeof(data));

@@ -6,13 +6,7 @@
 extern "C" {
 #endif
 
-extern FuriHalUsbInterface usb_hid_ldtoypad;
-
-// typedef enum {
-//     HidDisconnected,
-//     HidConnected,
-//     HidRequest,
-// } HidEvent;
+#define HID_EP_SZ 0x20
 
 typedef struct {
     unsigned char type;
@@ -21,12 +15,32 @@ typedef struct {
     unsigned char chksum;
 } Frame;
 
+// Define a Response structure
+typedef struct {
+    Frame frame;
+    unsigned char cid;
+    unsigned char payload[HID_EP_SZ];
+    int payload_len;
+    // int _cancel;
+    // int _preventDefault;
+} Response;
+
+// Define a Request structure
 typedef struct {
     Frame frame;
     unsigned char cmd;
     unsigned char cid;
-    unsigned char payload[HID_EP_SZ - 2]; // Assuming the payload is smaller than HID_EP_SZ
+    unsigned char payload[HID_EP_SZ - 2];
+    int payload_len;
 } Request;
+
+extern FuriHalUsbInterface usb_hid_ldtoypad;
+
+// typedef enum {
+//     HidDisconnected,
+//     HidConnected,
+//     HidRequest,
+// } HidEvent;
 
 int32_t hid_toypad_read_IN();
 // int32_t hid_toypad_read_OUT();
