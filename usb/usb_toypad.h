@@ -34,7 +34,7 @@ typedef struct {
 typedef struct {
     Frame frame;
     unsigned char cid;
-    unsigned char payload[HID_EP_SZ];
+    unsigned char payload[HID_EP_SZ - 1];
     int payload_len;
     // int _cancel;
     // int _preventDefault;
@@ -51,11 +51,11 @@ typedef struct {
 
 // Event structure
 typedef struct {
-    Frame* frame;
-    unsigned char pad;
-    unsigned char index;
-    unsigned char dir;
-    unsigned char* uid;
+    uint8_t pad;
+    uint8_t index;
+    uint8_t dir;
+    char uid[16]; // UID as a string
+    Frame frame;
 } Event;
 
 extern FuriHalUsbInterface usb_hid_ldtoypad;

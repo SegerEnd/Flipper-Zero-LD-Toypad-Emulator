@@ -6,6 +6,7 @@
 #include "usb_hid.h"
 
 #include "../views/EmulateToyPad_scene.h"
+#include "../tea.h"
 
 // Define all the possible commands
 #define CMD_WAKE   0xB0
@@ -516,6 +517,23 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         break;
     case CMD_SEED:
         sprintf(debug_text, "CMD_SEED");
+
+        // decrypt the payload with the TEA
+        uint32_t* payload = (uint32_t*)request.payload;
+        tea_decrypt(payload, emulator->tea_key);
+
+        // unsigned char decrypted_payload[sizeof(request.payload)];
+        // tea_decrypt(request.payload, emulator->tea_key, decrypted_payload);
+        // memcpy(request.payload, decrypted_payload, sizeof(request.payload));
+
+        // converted Javascript code to C
+        // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
+        uint32_t seed = request.payload[0] | request.payload[1] << 8 | request.payload[2] << 16 |
+                        request.payload[3] << 24;
+
+        uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
+                        request.payload[7] << 24;
+
         break;
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
@@ -568,6 +586,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // check if the response is empty
     if(response.payload_len == 0) {
         // sprintf(debug_text, "Empty payload_len");
+        return;
+    }
+    if(response.payload_len > HID_EP_SZ) {
+        sprintf(debug_text, "Payload too big");
         return;
     }
 
