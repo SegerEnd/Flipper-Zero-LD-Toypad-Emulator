@@ -430,6 +430,10 @@ char debug_text_ep_out[HID_EP_SZ] = "nothing";
 
 char debug_text[HID_EP_SZ] = " ";
 
+void set_debug_text(char* text) {
+    sprintf(debug_text, "%s", text);
+}
+
 // a function that returns a pointer to the string
 char* get_debug_text_ep_in() {
     return debug_text_ep_in;
@@ -549,7 +553,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_MODEL");
         break;
     case CMD_SEED:
-        sprintf(debug_text, "CMD_SEED");
+        // sprintf(debug_text, "CMD_SEED");
 
         // decrypt the request.payload with the TEA
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
@@ -581,7 +585,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_CHAL");
         break;
     case CMD_COL:
-        sprintf(debug_text, "CMD_COL");
+        // sprintf(debug_text, "CMD_COL");
         break;
     case CMD_GETCOL:
         sprintf(debug_text, "CMD_GETCOL");

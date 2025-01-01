@@ -4,101 +4,101 @@
 
 #define DELTA 0x9E3779B9
 
-void flipBytes(uint8_t* buf, size_t length, uint8_t* out) {
-    for(size_t i = 0; i < length; i += 4) {
-        uint32_t value =
-            ((uint32_t)buf[i] | (uint32_t)buf[i + 1] << 8 | (uint32_t)buf[i + 2] << 16 |
-             (uint32_t)buf[i + 3] << 24);
-        value = (value >> 0) & 0xFFFFFFFF; // This is just to keep the value unsigned
-        out[i] = (uint8_t)(value >> 24);
-        out[i + 1] = (uint8_t)(value >> 16);
-        out[i + 2] = (uint8_t)(value >> 8);
-        out[i + 3] = (uint8_t)value;
-    }
-}
+#include "./usb/usb_toypad.h"
 
-void tea_encrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
-    if(!key) {
-        return;
-    }
-
-    uint32_t v0 =
-        ((uint32_t)buffer[0] | (uint32_t)buffer[1] << 8 | (uint32_t)buffer[2] << 16 |
-         (uint32_t)buffer[3] << 24);
-    uint32_t v1 =
-        ((uint32_t)buffer[4] | (uint32_t)buffer[5] << 8 | (uint32_t)buffer[6] << 16 |
-         (uint32_t)buffer[7] << 24);
-
-    uint32_t k0 =
-        ((uint32_t)key[0] | (uint32_t)key[1] << 8 | (uint32_t)key[2] << 16 |
-         (uint32_t)key[3] << 24);
-    uint32_t k1 =
-        ((uint32_t)key[4] | (uint32_t)key[5] << 8 | (uint32_t)key[6] << 16 |
-         (uint32_t)key[7] << 24);
-    uint32_t k2 =
-        ((uint32_t)key[8] | (uint32_t)key[9] << 8 | (uint32_t)key[10] << 16 |
-         (uint32_t)key[11] << 24);
-    uint32_t k3 =
-        ((uint32_t)key[12] | (uint32_t)key[13] << 8 | (uint32_t)key[14] << 16 |
-         (uint32_t)key[15] << 24);
-
+// Encipher function: core TEA encryption logic
+void encipher(uint32_t* v, uint32_t* k, uint32_t* result) {
+    uint32_t v0 = v[0], v1 = v[1];
     uint32_t sum = 0;
-    for(int i = 0; i < 32; ++i) {
+
+    for(int i = 0; i < 32; i++) {
         sum += DELTA;
-        sum &= 0xFFFFFFFF;
-        v0 += (((v1 << 4) + k0) ^ (v1 + sum) ^ ((v1 >> 5) + k1)) & 0xFFFFFFFF;
-        v1 += (((v0 << 4) + k2) ^ (v0 + sum) ^ ((v0 >> 5) + k3)) & 0xFFFFFFFF;
+        v0 += (((v1 << 4) + k[0]) ^ (v1 + sum) ^ ((v1 >> 5) + k[1]));
+        v1 += (((v0 << 4) + k[2]) ^ (v0 + sum) ^ ((v0 >> 5) + k[3]));
     }
 
-    out[0] = (uint8_t)(v0 >> 24);
-    out[1] = (uint8_t)(v0 >> 16);
-    out[2] = (uint8_t)(v0 >> 8);
-    out[3] = (uint8_t)v0;
-    out[4] = (uint8_t)(v1 >> 24);
-    out[5] = (uint8_t)(v1 >> 16);
-    out[6] = (uint8_t)(v1 >> 8);
-    out[7] = (uint8_t)v1;
+    result[0] = v0;
+    result[1] = v1;
 }
 
-void tea_decrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
-    if(!key) {
+// Decipher function: core TEA decryption logic
+void decipher(uint32_t* v, uint32_t* k, uint32_t* result) {
+    uint32_t v0 = v[0], v1 = v[1];
+    uint32_t sum = 0xC6EF3720;
+
+    for(int i = 0; i < 32; i++) {
+        v1 -= (((v0 << 4) + k[2]) ^ (v0 + sum) ^ ((v0 >> 5) + k[3]));
+        v0 -= (((v1 << 4) + k[0]) ^ (v1 + sum) ^ ((v1 >> 5) + k[1]));
+        sum -= DELTA;
+    }
+
+    result[0] = v0;
+    result[1] = v1;
+}
+
+// Load 32-bit value safely (portable)
+static uint32_t bytes_to_uint32(const uint8_t* buf) {
+    return (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
+           ((uint32_t)buf[3] << 24);
+}
+
+// Store 32-bit value safely (portable)
+static void uint32_to_bytes(uint32_t value, uint8_t* buf) {
+    buf[0] = (uint8_t)(value & 0xFF);
+    buf[1] = (uint8_t)((value >> 8) & 0xFF);
+    buf[2] = (uint8_t)((value >> 16) & 0xFF);
+    buf[3] = (uint8_t)((value >> 24) & 0xFF);
+}
+
+// Encryption function
+void tea_encrypt(const uint8_t* buffer, const uint8_t* key, uint8_t* out) {
+    if(!buffer || !key || !out) return;
+
+    uint32_t v[2] = {bytes_to_uint32(buffer), bytes_to_uint32(buffer + 4)};
+    uint32_t k[4] = {
+        bytes_to_uint32(key),
+        bytes_to_uint32(key + 4),
+        bytes_to_uint32(key + 8),
+        bytes_to_uint32(key + 12)};
+
+    uint32_t result[2];
+    encipher(v, k, result);
+
+    uint32_to_bytes(result[0], out);
+    uint32_to_bytes(result[1], out + 4);
+}
+
+// Decryption function
+void tea_decrypt(const uint8_t* buffer, const uint8_t* key, uint8_t* out) {
+    if(!buffer || !key || !out) return;
+
+    uint32_t v[2] = {bytes_to_uint32(buffer), bytes_to_uint32(buffer + 4)};
+    uint32_t k[4] = {
+        bytes_to_uint32(key),
+        bytes_to_uint32(key + 4),
+        bytes_to_uint32(key + 8),
+        bytes_to_uint32(key + 12)};
+
+    // dechiper the buffer
+    uint32_t result[2];
+    decipher(v, k, result);
+
+    // if(k[0] == 0 || v[0] == 0) {
+    //     return;
+    // }
+
+    if(!out || out == NULL) {
+        set_debug_text("Error: output pointer is NULL");
         return;
     }
-
-    uint32_t v0 =
-        ((uint32_t)buffer[0] | (uint32_t)buffer[1] << 8 | (uint32_t)buffer[2] << 16 |
-         (uint32_t)buffer[3] << 24);
-    uint32_t v1 =
-        ((uint32_t)buffer[4] | (uint32_t)buffer[5] << 8 | (uint32_t)buffer[6] << 16 |
-         (uint32_t)buffer[7] << 24);
-
-    uint32_t k0 =
-        ((uint32_t)key[0] | (uint32_t)key[1] << 8 | (uint32_t)key[2] << 16 |
-         (uint32_t)key[3] << 24);
-    uint32_t k1 =
-        ((uint32_t)key[4] | (uint32_t)key[5] << 8 | (uint32_t)key[6] << 16 |
-         (uint32_t)key[7] << 24);
-    uint32_t k2 =
-        ((uint32_t)key[8] | (uint32_t)key[9] << 8 | (uint32_t)key[10] << 16 |
-         (uint32_t)key[11] << 24);
-    uint32_t k3 =
-        ((uint32_t)key[12] | (uint32_t)key[13] << 8 | (uint32_t)key[14] << 16 |
-         (uint32_t)key[15] << 24);
-
-    uint32_t sum = 0xC6EF3720; // Correct initialization for decryption
-    for(int i = 0; i < 32; ++i) {
-        v1 -= (((v0 << 4) + k2) ^ (v0 + sum) ^ ((v0 >> 5) + k3)) & 0xFFFFFFFF;
-        v0 -= (((v1 << 4) + k0) ^ (v1 + sum) ^ ((v1 >> 5) + k1)) & 0xFFFFFFFF;
-        sum -= DELTA;
-        sum &= 0xFFFFFFFF;
+    // if(result == NULL) {
+    //     set_debug_text("Error: result is NULL");
+    //     return;
+    // }
+    if(result[0] == 0 || result[1] == 0) {
+        set_debug_text("Error: result is 0");
+        return;
     }
-
-    out[0] = (uint8_t)(v0 >> 24);
-    out[1] = (uint8_t)(v0 >> 16);
-    out[2] = (uint8_t)(v0 >> 8);
-    out[3] = (uint8_t)v0;
-    out[4] = (uint8_t)(v1 >> 24);
-    out[5] = (uint8_t)(v1 >> 16);
-    out[6] = (uint8_t)(v1 >> 8);
-    out[7] = (uint8_t)v1;
+    // uint32_to_bytes(result[0], out);
+    // uint32_to_bytes(result[1], out + 4);
 }

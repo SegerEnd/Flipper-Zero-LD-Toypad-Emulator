@@ -75,6 +75,8 @@ char* get_debug_text_ep_out();
 
 char* get_debug_text();
 
+void set_debug_text(char* text);
+
 usbd_device* get_usb_device();
 
 #ifdef __cplusplus
