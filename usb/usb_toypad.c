@@ -7,6 +7,7 @@
 
 #include "../views/EmulateToyPad_scene.h"
 #include "../tea.h"
+#include "../burtle.h"
 
 // Define all the possible commands
 #define CMD_WAKE   0xB0
@@ -449,6 +450,34 @@ void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     if(len <= 0) return;
 }
 
+Burtle* burtle; // Define the Burtle object
+
+// Function to convert a little-endian to uint32_t
+uint32_t readUInt32LE(uint8_t* buffer) {
+    return (buffer[0]) | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
+}
+
+// Function to convert a big-endian to uint32_t
+uint32_t readUInt32BE(uint8_t* buffer) {
+    return (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+}
+
+// Function to write uint32_t to little-endian
+void writeUInt32LE(uint8_t* buffer, uint32_t value) {
+    buffer[0] = value & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+    buffer[2] = (value >> 16) & 0xFF;
+    buffer[3] = (value >> 24) & 0xFF;
+}
+
+// Function to write uint32_t to big-endian
+void writeUInt32BE(uint8_t* buffer, uint32_t value) {
+    buffer[0] = (value >> 24) & 0xFF;
+    buffer[1] = (value >> 16) & 0xFF;
+    buffer[2] = (value >> 8) & 0xFF;
+    buffer[3] = value & 0xFF;
+}
+
 void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(ep);
     UNUSED(event);
@@ -469,6 +498,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
     Frame frame;
     parse_frame(&frame, req_buf, len);
+
+    if(frame.len == 0) {
+        return;
+    }
 
     Request request;
     request.cmd = frame.payload[0];
@@ -521,20 +554,24 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         // decrypt the request.payload with the TEA
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
-        // unsigned char decrypted_payload[sizeof(request.payload)];
-        // tea_decrypt(request.payload, emulator->tea_key, decrypted_payload);
-        // memcpy(request.payload, decrypted_payload, sizeof(request.payload));
+        // // converted Javascript code to C
+        // // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
+        // uint32_t seed = request.payload[0] | request.payload[1] << 8 | request.payload[2] << 16 |
+        //                 request.payload[3] << 24;
 
-        // converted Javascript code to C
-        // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
-        uint32_t seed = request.payload[0] | request.payload[1] << 8 | request.payload[2] << 16 |
-                        request.payload[3] << 24;
+        // uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
+        //                 request.payload[7] << 24;
 
-        uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
-                        request.payload[7] << 24;
+        // burtle_init(burtle, seed);
 
-        UNUSED(seed);
-        UNUSED(conf);
+        // memset(request.payload, 0, 8); // Fill the payload with 0 with a length of 8
+        // writeUInt32BE(request.payload, conf); // Write the conf to the payload
+
+        // // UNUSED(seed);
+        // UNUSED(conf);
+
+        // // encrypt the request.payload with the TEA
+        // tea_encrypt(request.payload, emulator->tea_key, request.payload);
 
         break;
     case CMD_WRITE:
@@ -580,8 +617,8 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_LEDSQ");
         break;
     default:
-        snprintf(debug_text, HID_EP_SZ, "U: %02X", request.cmd);
-        snprintf(debug_text, HID_EP_SZ, "ERR: %02X", request.cmd);
+        // snprintf(debug_text, HID_EP_SZ, "ERR: %02X", request.cmd);
+        sprintf(debug_text, "Not a valid command");
         return;
     }
 

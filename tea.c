@@ -85,7 +85,7 @@ void tea_decrypt(uint8_t* buffer, uint8_t* key, uint8_t* out) {
         ((uint32_t)key[12] | (uint32_t)key[13] << 8 | (uint32_t)key[14] << 16 |
          (uint32_t)key[15] << 24);
 
-    uint32_t sum = 0xC6EF3720;
+    uint32_t sum = 0xC6EF3720; // Correct initialization for decryption
     for(int i = 0; i < 32; ++i) {
         v1 -= (((v0 << 4) + k2) ^ (v0 + sum) ^ ((v0 >> 5) + k3)) & 0xFFFFFFFF;
         v0 -= (((v1 << 4) + k0) ^ (v1 + sum) ^ ((v1 >> 5) + k1)) & 0xFFFFFFFF;
