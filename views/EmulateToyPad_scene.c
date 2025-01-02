@@ -73,7 +73,7 @@ void send_minifigure(uint32_t minifigure_index) {
     set_debug_text(uid);
 
     // place the minifigure on the selected box
-    ToyPadEmu_place(get_emulator(), selectedBox, minifigure_index, uid);
+    ToyPadEmu_place(get_emulator(), selectedBox + 1, minifigure_index, uid);
 }
 
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
@@ -86,11 +86,6 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
         instance->view,
         LDToyPadSceneEmulateModel * model,
         {
-            if(model->selected_minifigure_index != 0) {
-                send_minifigure(model->selected_minifigure_index);
-                model->selected_minifigure_index = 0;
-            }
-
             // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
             if(event->key == InputKeyOk) {
                 if(event->type == InputTypePress) {
@@ -209,14 +204,13 @@ void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
     // canvas_set_font(canvas, FontPrimary);
 
     // // Displaying the connected USB status
-    if(model->connected) {
-        // elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "Awaiting");
+    if(get_connected_status()) {
+        model->connected = true;
+        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Awoken");
+    } else if(model->connected) {
+        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
     } else {
         elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Not Connected");
-        // if(furi_hal_usb_get_config() == &usb_hid_ldtoypad) {
-        //     model->connected = true;
-        // }
     }
 
     // // Testing pressing buttons
@@ -277,10 +271,20 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->usbDevice = get_usb_device();
         model->connection_status = "USB device setting...";
     }
-    if(model->usbDevice == NULL) {
+    if(model->connected) {
+        model->connection_status = "Connected to game";
+    } else if(get_connected_status()) {
+        model->connected = true;
+        model->connection_status = "USB Awoken";
+    } else if(model->usbDevice == NULL) {
         model->connection_status = "USB not yet connected";
     } else if(!model->connected) {
         model->connection_status = "Trying to connect USB";
+    }
+
+    if(model->selected_minifigure_index != 0) {
+        send_minifigure(model->selected_minifigure_index);
+        model->selected_minifigure_index = 0;
     }
 
     // poll the USB status here
@@ -309,16 +313,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // elements_button_center(canvas, "OK");
     // elements_button_right(canvas, "Next");
 
-    if(model->connected) {
-        // elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "Awaiting");
-    } else {
-        elements_multiline_text_aligned(
-            canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
-        // if(furi_hal_usb_get_config() == &usb_hid_ldtoypad) {
-        //     model->connected = true;
-        // }
-    }
+    elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
 
     // Testing pressing buttons
     if(model->ok_pressed) {
@@ -342,12 +337,27 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
     elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
 
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 32, 120, 16);
-    canvas_set_color(canvas, ColorBlack);
+    // canvas_set_color(canvas, ColorWhite);
+    // canvas_draw_box(canvas, 0, 32, 120, 16);
+    // canvas_set_color(canvas, ColorBlack);
 
-    elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
-    elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
+    // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
+    // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
+
+    if(get_debug_text_ep_in() != NULL && strcmp(get_debug_text_ep_in(), "nothing") != 0) {
+        canvas_set_color(canvas, ColorWhite);
+        canvas_clear(canvas);
+        canvas_set_color(canvas, ColorBlack);
+
+        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, get_debug_text_ep_in());
+    }
+
+    // canvas_set_color(canvas, ColorWhite);
+    // canvas_draw_box(canvas, 0, 32, 120, 16);
+    // canvas_set_color(canvas, ColorBlack);
+
+    // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "send: ");
+    // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_in());
 
     // ep in
     // canvas_set_color(canvas, ColorWhite);
@@ -391,6 +401,25 @@ void ldtoypad_scene_emulate_exit_callback(void* context) {
     app->timer = NULL;
 }
 
+static bool ldtoypad_scene_emulate_custom_event_callback(uint32_t event, void* context) {
+    LDToyPadSceneEmulate* scene = (LDToyPadSceneEmulate*)context;
+    switch(event) {
+    case 0:
+        // Redraw screen by passing true to last parameter of with_view_model.
+        {
+            bool redraw = true;
+            with_view_model(
+                ldtoypad_scene_emulate_get_view(scene),
+                LDToyPadSceneEmulateModel * _model,
+                { UNUSED(_model); },
+                redraw);
+            return true;
+        }
+    default:
+        return false;
+    }
+}
+
 LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     furi_assert(new_app);
     app = new_app;
@@ -417,6 +446,8 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
 
     view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
+
+    view_set_custom_callback(instance->view, ldtoypad_scene_emulate_custom_event_callback);
 
     // Allocate the submenu
     // selectionMenu = submenu_alloc();
@@ -462,7 +493,7 @@ void minifigures_submenu_callback(void* context, uint32_t index) {
     with_view_model(
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
-        { model->selected_minifigure_index = index + 1; },
+        { model->selected_minifigure_index = index; },
         true);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);

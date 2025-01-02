@@ -99,6 +99,8 @@ int build_response(Response* response, unsigned char* buf);
 
 ToyPadEmu* get_emulator();
 
+bool get_connected_status();
+
 #ifdef __cplusplus
 }
 #endif

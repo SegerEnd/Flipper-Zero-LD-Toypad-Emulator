@@ -40,6 +40,72 @@
 #define USB_EP0_SIZE 64
 PLACE_IN_SECTION("MB_MEM2") static uint32_t ubuf[0x20];
 
+bool connected_status = false;
+bool get_connected_status() {
+    return connected_status;
+}
+
+// create a string variablethat contains the text: nothing to debug yet
+char debug_text_ep_in[HID_EP_SZ] = "nothing";
+
+// char debug_text_ep_out[] = "nothing to debug yet";
+char debug_text_ep_out[HID_EP_SZ] = "nothing";
+
+char debug_text[HID_EP_SZ] = " ";
+
+void set_debug_text(char* text) {
+    sprintf(debug_text, "%s", text);
+}
+
+// a function that returns a pointer to the string
+char* get_debug_text_ep_in() {
+    return debug_text_ep_in;
+}
+char* get_debug_text_ep_out() {
+    return debug_text_ep_out;
+}
+char* get_debug_text() {
+    return debug_text;
+}
+
+// a function to convert an array of bytes to a string like 0x00, 0x01, 0x02, 0x03
+void hexArrayToString(const unsigned char* array, int size, char* outputBuffer, int bufferSize) {
+    int currentLength = 0;
+
+    for(int i = 0; i < size; i++) {
+        // Get the two nibbles (4-bit halves) of the current byte
+        unsigned char highNibble = (array[i] >> 4) & 0x0F; // High 4 bits
+        unsigned char lowNibble = array[i] & 0x0F; // Low 4 bits
+
+        // Convert nibbles to hex characters
+        char highChar = (highNibble < 10) ? ('0' + highNibble) : ('A' + highNibble - 10);
+        char lowChar = (lowNibble < 10) ? ('0' + lowNibble) : ('A' + lowNibble - 10);
+
+        // Append "0x", the hex characters, and a space to the buffer
+        if(currentLength + 4 <
+           bufferSize) { // Ensure enough space for "0x", two chars, and a space
+            outputBuffer[currentLength++] = '0';
+            outputBuffer[currentLength++] = 'x';
+            outputBuffer[currentLength++] = highChar;
+            outputBuffer[currentLength++] = lowChar;
+
+            // Add a space after each hex value, except the last one
+            if(i < size - 1 && currentLength < bufferSize) {
+                outputBuffer[currentLength++] = ' ';
+            }
+        } else {
+            break; // Stop if there isn't enough space
+        }
+    }
+
+    // Null-terminate the string
+    if(currentLength < bufferSize) {
+        outputBuffer[currentLength] = '\0';
+    } else if(bufferSize > 0) {
+        outputBuffer[bufferSize - 1] = '\0';
+    }
+}
+
 // Function to parse a Frame into a Request
 void parse_request(Request* request, Frame* f) {
     if(request == NULL || f == NULL) return;
@@ -119,13 +185,14 @@ int Event_build(Event* event, unsigned char* buf) {
     b[0] = event->pad;
     b[1] = 0;
     b[2] = event->index;
-    b[3] = event->dir & 0x1; // Direction is either 0 or 1
-    memcpy(b + 4, event->uid, sizeof(event->uid));
+    b[3] = event->dir;
+    memcpy(b + 4, event->uid, 6);
 
     // Update the event's frame
     event->frame.type = 0x56;
-    event->frame.len = 11;
-    memcpy(event->frame.payload, b, 11);
+    event->frame.len = sizeof(b);
+    // Copy the event's payload into the frame
+    memcpy(event->frame.payload, b, sizeof(b));
 
     // Build the frame and return the size of the frame
     return build_frame(&event->frame, buf);
@@ -372,18 +439,31 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
 
     // emu->tokens[emu->token_count++] = new_token;
 
-    Event event;
-    Event_init(&event, NULL, 0);
+    Event* event = malloc(sizeof(Event));
+    Event_init(event, NULL, 0);
 
     // set the pad
-    event.pad = pad;
-    event.index = index;
-    memcpy(event.uid, uid, sizeof(event.uid));
+    event->pad = pad;
+    event->index = index;
+
+    // index to string for set debug text
+    // char index_str[10];
+    // snprintf(index_str, 10, "%d", event->index);
+    // // also add event->pad to the string
+    // char pad_str[10];
+    // snprintf(pad_str, 10, "%d", event->pad);
+    // snprintf(
+    //     index_str, sizeof(index_str) + sizeof(pad_str), "I: %d, P: %s", event->index, pad_str);
+
+    // set_debug_text(index_str);
+    // return;
+
+    memcpy(event->uid, uid, sizeof(event->uid));
 
     // build the event
     unsigned char buf[HID_EP_SZ];
-    int len = Event_build(&event, buf);
 
+    int len = Event_build(event, buf);
     if(len == 0) {
         set_debug_text("Length of event is 0");
         return;
@@ -391,8 +471,17 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
 
     emu->token_count++;
 
+    // convert the buffer to a string
+    char string_debug[HID_EP_SZ];
+    hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
+
+    // set the debug_text_ep_in to the string
+    memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
+
     // send the event
     usbd_ep_write(usb_dev, HID_EP_IN, buf, sizeof(buf));
+
+    free(event);
 
     return;
 }
@@ -495,41 +584,19 @@ static void hid_on_suspend(usbd_device* dev) {
     }
 }
 
-// create a string variablethat contains the text: nothing to debug yet
-char debug_text_ep_in[HID_EP_SZ] = "nothing";
-
-// char debug_text_ep_out[] = "nothing to debug yet";
-char debug_text_ep_out[HID_EP_SZ] = "nothing";
-
-char debug_text[HID_EP_SZ] = " ";
-
-void set_debug_text(char* text) {
-    sprintf(debug_text, "%s", text);
-}
-
-// a function that returns a pointer to the string
-char* get_debug_text_ep_in() {
-    return debug_text_ep_in;
-}
-char* get_debug_text_ep_out() {
-    return debug_text_ep_out;
-}
-char* get_debug_text() {
-    return debug_text;
-}
-
 void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(ep);
     UNUSED(event);
+    UNUSED(dev);
     // Handle the IN endpoint
 
-    unsigned char in_buf[HID_EP_SZ] = {0};
+    // unsigned char in_buf[HID_EP_SZ] = {0};
 
-    int len = usbd_ep_read(dev, HID_EP_IN, in_buf, HID_EP_SZ);
+    // int len = usbd_ep_read(dev, HID_EP_IN, in_buf, HID_EP_SZ);
 
-    sprintf(debug_text_ep_in, "%s", in_buf);
+    // sprintf(debug_text_ep_in, "%s", in_buf);
 
-    if(len <= 0) return;
+    // if(len <= 0) return;
 }
 
 uint32_t readUInt32LE(const unsigned char* buffer, int offset) {
@@ -569,8 +636,12 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // Read data from the OUT endpoint
     int32_t len = usbd_ep_read(dev, HID_EP_OUT, req_buf, HID_EP_SZ);
 
-    // Make from the data a string and save it to the debug_text_ep_in string
+    // char hexValues[HID_EP_SZ];
+    // hexArrayToString(req_buf, sizeof(hexValues), hexValues, HID_EP_SZ);
+
+    // Make from the data a string and save it to the debug_text_ep_out string
     sprintf(debug_text_ep_out, "%s", req_buf);
+    // sprintf(debug_text_ep_out, "%s", hexValues);
 
     if(len <= 0) return;
 
@@ -647,6 +718,8 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
                                                  0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
 
         // furi_delay_ms(50);
+
+        connected_status = true;
 
         usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
 
