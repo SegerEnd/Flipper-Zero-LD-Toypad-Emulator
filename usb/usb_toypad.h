@@ -13,7 +13,7 @@ typedef struct {
     int index;
     int id;
     int pad;
-    char uid[7];
+    char uid[6];
     // unsigned char data[180];
 } Token;
 
@@ -57,7 +57,7 @@ typedef struct {
     int pad;
     int index;
     int dir;
-    char uid[7];
+    char uid[6];
 } Event;
 
 extern FuriHalUsbInterface usb_hid_ldtoypad;

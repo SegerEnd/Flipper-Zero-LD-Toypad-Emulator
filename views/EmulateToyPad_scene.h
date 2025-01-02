@@ -1,5 +1,7 @@
 #pragma once
 
+#include <furi.h>
+
 #include <gui/view.h>
 #include <gui/view_dispatcher.h>
 #include <gui/modules/submenu.h>

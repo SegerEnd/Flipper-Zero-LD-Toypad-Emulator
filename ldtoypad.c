@@ -173,6 +173,11 @@ static uint32_t minifigures_submenu_previous_callback(void* context) {
     return ViewEmulate;
 }
 
+ViewDispatcher* view_dispatcher;
+
+ViewDispatcher* get_view_dispatcher() {
+    return view_dispatcher;
+}
 /**
  * @brief      Allocate the ldtoypad application. Set up the views and resources.
  * @details    This function allocates the ldtoypad application resources.
@@ -184,6 +189,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     Gui* gui = furi_record_open(RECORD_GUI);
 
     app->view_dispatcher = view_dispatcher_alloc();
+    view_dispatcher = app->view_dispatcher;
     view_dispatcher_attach_to_gui(app->view_dispatcher, gui, ViewDispatcherTypeFullscreen);
     view_dispatcher_set_event_callback_context(app->view_dispatcher, app);
 

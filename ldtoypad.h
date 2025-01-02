@@ -44,8 +44,6 @@ typedef struct {
     char* temp_buffer; // Temporary buffer for text input
     uint32_t temp_buffer_size; // Size of temporary buffer
 
-    // FuriTimer* timer; // Timer for redrawing the screen
-
     Submenu* submenu_minifigure_selection; // The minifigure selection screen
 
 } LDToyPadApp;
@@ -59,6 +57,8 @@ typedef enum {
     ViewAbout, // The about screen with directions, link to social channel, etc.
     ViewMinifigureSelection, // The minifigure selection screen
 } Views;
+
+ViewDispatcher* get_view_dispatcher();
 
 #ifdef __cplusplus
 }

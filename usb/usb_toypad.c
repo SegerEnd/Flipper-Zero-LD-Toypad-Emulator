@@ -319,13 +319,12 @@ Burtle* burtle; // Define the Burtle object
 
 // Generate random UID
 void ToyPadEmu_randomUID(char* uid) {
-    srand(furi_get_tick()); // Set the seed to random value
+    // srand(furi_get_tick()); // Set the seed to random value
     uid[0] = 0x04; // vendor id = NXP
     uid[6] = 0x80; // Set last byte to 0x80
     for(int i = 1; i < 6; i++) {
         uid[i] = rand() % 256;
     }
-    uid[7] = '\0'; // null terminate
 }
 
 void ToyPadEmu_init(ToyPadEmu* emu) {
@@ -367,21 +366,19 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
         return;
     }
 
-    Token new_token = createCharacter(index, uid);
-    new_token.index = index;
-    new_token.pad = pad;
+    // Token new_token = createCharacter(index, uid);
+    // new_token.index = index;
+    // new_token.pad = pad;
 
-    emu->tokens[emu->token_count++] = new_token;
+    // emu->tokens[emu->token_count++] = new_token;
 
-    // send to usb
-    // make a event
     Event event;
     Event_init(&event, NULL, 0);
 
     // set the pad
     event.pad = pad;
     event.index = index;
-    memcpy(event.uid, uid, 8);
+    memcpy(event.uid, uid, sizeof(event.uid));
 
     // build the event
     unsigned char buf[HID_EP_SZ];
@@ -391,6 +388,8 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
         set_debug_text("Length of event is 0");
         return;
     }
+
+    emu->token_count++;
 
     // send the event
     usbd_ep_write(usb_dev, HID_EP_IN, buf, sizeof(buf));

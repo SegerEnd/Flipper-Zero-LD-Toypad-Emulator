@@ -46,6 +46,9 @@ struct LDToyPadSceneEmulate {
     View* view;
     // LDToyPadSceneEmulateCallback callback;
     // void* context;
+
+    // timer
+    FuriTimer* timer; // Timer for redrawing the screen
 };
 
 // The selected pad on the toypad
@@ -64,8 +67,10 @@ uint8_t selectedBox = 0; // Variable to keep track of which toypad box is select
 
 void send_minifigure(uint32_t minifigure_index) {
     // create a minifigure from the selected minifigure
-    char uid[7];
+    char uid[6];
     ToyPadEmu_randomUID(uid);
+
+    set_debug_text(uid);
 
     // place the minifigure on the selected box
     ToyPadEmu_place(get_emulator(), selectedBox, minifigure_index, uid);
@@ -250,18 +255,13 @@ void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
     // // Now for USB info also but below the other one
 }
 
-void ldtoypad_scene_emulate_enter_callback(void* context) {
-    UNUSED(context);
+// void ldtoypad_scene_emulate_enter_callback(void* context) {
+//     UNUSED(context);
+// }
 
-    // not used yet
-}
-
-void ldtoypad_scene_emulate_exit_callback(void* context) {
-    UNUSED(context);
-    // LDToyPadSceneEmulateModel* model = context;
-
-    // ldtoypad_scene_emulate_free(context);
-}
+// void ldtoypad_scene_emulate_exit_callback(void* context) {
+//     UNUSED(context);
+// }
 
 // uint32_t selectionMenu_prev_callback(void* context) {
 //     UNUSED(context);
@@ -369,8 +369,30 @@ static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context
     return ViewSubmenu;
 }
 
+void ldtoypad_scene_emulate_view_game_timer_callback(void* context) {
+    UNUSED(context);
+    // LDToyPadSceneEmulate* app = (LDToyPadSceneEmulate*)context;
+    view_dispatcher_send_custom_event(get_view_dispatcher(), 0);
+}
+
+void ldtoypad_scene_emulate_enter_callback(void* context) {
+    uint32_t period = furi_ms_to_ticks(150);
+    LDToyPadSceneEmulate* app = (LDToyPadSceneEmulate*)context;
+    furi_assert(app->timer == NULL);
+    app->timer = furi_timer_alloc(
+        ldtoypad_scene_emulate_view_game_timer_callback, FuriTimerTypePeriodic, app);
+    furi_timer_start(app->timer, period);
+}
+
+void ldtoypad_scene_emulate_exit_callback(void* context) {
+    LDToyPadSceneEmulate* app = (LDToyPadSceneEmulate*)context;
+    furi_timer_stop(app->timer);
+    furi_timer_free(app->timer);
+    app->timer = NULL;
+}
+
 LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
-    furi_assert(new_app); // check if app is set;
+    furi_assert(new_app);
     app = new_app;
 
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
@@ -388,9 +410,13 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     // view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_callback);
     view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_render_callback);
     view_set_input_callback(instance->view, ldtoypad_scene_emulate_input_callback);
-    view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
-    view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
+    // view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
+    // view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
     view_set_previous_callback(instance->view, ldtoypad_scene_emulate_navigation_submenu_callback);
+
+    view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
+
+    view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
 
     // Allocate the submenu
     // selectionMenu = submenu_alloc();
