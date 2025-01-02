@@ -52,29 +52,6 @@ void parse_request(Request* request, Frame* f) {
     memcpy(request->payload, p + 2, f->len - 2); // Copy payload, excluding cmd and cid
 }
 
-// Function to build a Frame from a Request
-// int build_request(Request* request, uint8_t* out_buf) {
-//     if(request == NULL || out_buf == NULL) return -1;
-
-//     // Build the frame from the Request
-//     uint8_t b[HID_EP_SZ + 2];
-//     b[0] = request->cmd;
-//     b[1] = request->cid;
-//     memcpy(b + 2, request->payload, request->frame.len - 2);
-
-//     // Set Frame type and payload
-//     request->frame.type = 0x55;
-//     request->frame.len = request->frame.len; // Should be payload length + 2 (cmd, cid)
-//     memcpy(request->frame.payload, b, request->frame.len);
-
-//     // Assuming checksum is calculated similarly
-//     request->frame.chksum = 0; // TODO: Add checksum calculation here
-
-//     // Copy the full frame to the output buffer
-//     memcpy(out_buf, &request->frame, sizeof(Frame));
-//     return sizeof(Frame); // Return size of the built frame
-// }
-
 // Function to parse a Frame from a buffer
 void parse_frame(Frame* frame, unsigned char* buf, int len) {
     UNUSED(len);
@@ -498,14 +475,14 @@ void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     if(len <= 0) return;
 }
 
-// Function to convert a little-endian to uint32_t
-uint32_t readUInt32LE(uint8_t* buffer) {
-    return (buffer[0]) | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
+uint32_t readUInt32LE(const unsigned char* buffer, int offset) {
+    return (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) |
+           ((uint32_t)buffer[offset + 2] << 16) | ((uint32_t)buffer[offset + 3] << 24);
 }
 
-// Function to convert a big-endian to uint32_t
-uint32_t readUInt32BE(uint8_t* buffer) {
-    return (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+uint32_t readUInt32BE(const unsigned char* buffer, int offset) {
+    return ((uint32_t)buffer[offset] << 24) | ((uint32_t)buffer[offset + 1] << 16) |
+           ((uint32_t)buffer[offset + 2] << 8) | (uint32_t)buffer[offset + 3];
 }
 
 // Function to write uint32_t to little-endian
@@ -551,6 +528,8 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
     Request request;
 
+    memset(&request, 0, sizeof(Request));
+
     // parse request
     parse_request(&request, &frame);
 
@@ -560,8 +539,12 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // memcpy(request.payload, frame.payload + 2, request.payload_len);
 
     Response response;
+    memset(&response, 0, sizeof(Response));
+
     response.cid = request.cid;
     response.payload_len = 0;
+
+    uint32_t conf;
 
     switch(request.cmd) {
     case CMD_WAKE:
@@ -626,13 +609,9 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         // decrypt the request.payload with the TEA
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
-        // converted Javascript code to C
-        // var seed = request.payload.readUInt32LE(0)   var conf = request.payload.readUInt32BE(4)
-        uint32_t seed = request.payload[0] | request.payload[1] << 8 | request.payload[2] << 16 |
-                        request.payload[3] << 24;
+        uint32_t seed = readUInt32LE(request.payload, 0);
 
-        uint32_t conf = request.payload[4] | request.payload[5] << 8 | request.payload[6] << 16 |
-                        request.payload[7] << 24;
+        conf = readUInt32BE(request.payload, 4);
 
         burtle_init(burtle, seed);
 
@@ -642,12 +621,38 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         // encrypt the request.payload with the TEA
         tea_encrypt(response.payload, emulator->tea_key, response.payload);
 
+        response.payload_len = 8;
+
         break;
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
         break;
     case CMD_CHAL:
         sprintf(debug_text, "CMD_CHAL");
+
+        // decrypt the request.payload with the TEA
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
+
+        // get conf
+        conf = readUInt32BE(request.payload, 0);
+
+        // make a new buffer for the response of 8
+        memset(response.payload, 0, 8);
+
+        // get a rand from the burtle
+        uint32_t rand = burtle_rand(burtle);
+
+        // write the rand to the response payload as Int32LE
+        writeUInt32LE(response.payload, rand);
+
+        // write the conf to the response payload as Int32BE
+        writeUInt32BE(response.payload + 4, conf);
+
+        // encrypt the response.payload with the TEA
+        tea_encrypt(response.payload, emulator->tea_key, response.payload);
+
+        response.payload_len = 8;
+
         break;
     case CMD_COL:
         sprintf(debug_text, "CMD_COL");

@@ -1,31 +1,25 @@
-#include <stdint.h>
 #include "burtle.h"
 
-// Rotate left function, equivalent to the `rot` function in JavaScript
-uint32_t rotate(uint32_t value, uint32_t bits) {
-    return ((value << bits) | (value >> (32 - bits))) & 0xFFFFFFFF;
+// Helper function for rotation
+static uint32_t rot(uint32_t a, int b) {
+    return (a << b) | (a >> (32 - b));
 }
 
-// Random number generation function
-uint32_t burtle_rand(Burtle* burtle) {
-    uint32_t e = burtle->a - rotate(burtle->b, 21);
-    burtle->a = (burtle->b ^ rotate(burtle->c, 19)) & 0xFFFFFFFF;
-    burtle->b = (burtle->c + rotate(burtle->d, 6)) & 0xFFFFFFFF;
-    burtle->c = (burtle->d + e) & 0xFFFFFFFF;
-    burtle->d = (e + burtle->a) & 0xFFFFFFFF;
-
-    return burtle->d;
-}
-
-// Initialize the Burtle structure with a seed
-void burtle_init(Burtle* burtle, uint32_t seed) {
-    burtle->a = 0xf1ea5eed;
-    burtle->b = seed;
-    burtle->c = seed;
-    burtle->d = seed;
-
-    // Run the rand function 42 times to initialize the state
+// Constructor equivalent
+void burtle_init(Burtle* b, uint32_t seed) {
+    b->a = 0xf1ea5eed;
+    b->b = b->c = b->d = seed;
     for(int i = 0; i < 42; ++i) {
-        burtle_rand(burtle);
+        burtle_rand(b); // Initialize with 42 iterations
     }
+}
+
+// rand method
+uint32_t burtle_rand(Burtle* b) {
+    uint32_t e = b->a - rot(b->b, 21);
+    b->a = b->b ^ rot(b->c, 19);
+    b->b = b->c + rot(b->d, 6);
+    b->c = b->d + e;
+    b->d = e + b->a;
+    return b->d;
 }

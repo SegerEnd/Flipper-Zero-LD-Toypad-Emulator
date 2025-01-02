@@ -91,10 +91,10 @@ void tea_decrypt(const uint8_t* buffer, const uint8_t* key, uint8_t* out) {
     //     set_debug_text("Error: result is NULL");
     //     return;
     // }
-    if(result[0] == 0 || result[1] == 0) {
-        set_debug_text("Error: result is 0");
-        return;
-    }
+    // if(result[0] == 0 || result[1] == 0) {
+    //     set_debug_text("Error: result is 0");
+    //     return;
+    // }
     uint32_to_bytes(result[0], out);
     uint32_to_bytes(result[1], out + 4);
 }

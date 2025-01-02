@@ -34,7 +34,7 @@ typedef struct {
 typedef struct {
     Frame frame;
     unsigned char cid;
-    unsigned char payload[HID_EP_SZ - 1];
+    unsigned char payload[HID_EP_SZ];
     int payload_len;
     // int _cancel;
     // int _preventDefault;
