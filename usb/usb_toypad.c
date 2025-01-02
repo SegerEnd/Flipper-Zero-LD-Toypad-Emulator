@@ -46,7 +46,7 @@ bool get_connected_status() {
 }
 
 // create a string variablethat contains the text: nothing to debug yet
-char debug_text_ep_in[HID_EP_SZ] = "nothing";
+char debug_text_ep_in[HID_EP_SZ * 4] = "nothing";
 
 // char debug_text_ep_out[] = "nothing to debug yet";
 char debug_text_ep_out[HID_EP_SZ] = "nothing";
@@ -128,12 +128,16 @@ void parse_frame(Frame* frame, unsigned char* buf, int len) {
 }
 
 // Function to calculate checksum
-unsigned char calculate_checksum(unsigned char* buf, int len) {
-    unsigned char sum = 0;
-    for(int i = 0; i < len; i++) {
-        sum += buf[i];
+void calculate_checksum(uint8_t* buf, int length) {
+    uint8_t checksum = 0;
+
+    // Calculate checksum (up to 'length')
+    for(int i = 0; i < length; i++) {
+        checksum = (checksum + buf[i]) % 256;
     }
-    return sum % 256;
+
+    // Assign checksum to the last position
+    buf[length] = checksum;
 }
 
 // Function to build a Frame into a buffer
@@ -141,7 +145,8 @@ int build_frame(Frame* frame, unsigned char* buf) {
     buf[0] = frame->type;
     buf[1] = frame->len;
     memcpy(buf + 2, frame->payload, frame->len);
-    buf[frame->len + 2] = calculate_checksum(buf, frame->len + 2);
+    // buf[frame->len + 2] = calculate_checksum(buf, frame->len + 2);
+    calculate_checksum(buf, frame->len + 2);
     return frame->len + 3;
 }
 
@@ -163,39 +168,64 @@ int build_response(Response* response, unsigned char* buf) {
 }
 
 void Event_init(Event* event, unsigned char* data, int len) {
-    if(data && len > 0) {
-        Frame frame;
-        parse_frame(&frame, data, len);
-        event->pad = frame.payload[0];
-        event->index = frame.payload[2];
-        event->dir = frame.payload[3];
-        memcpy(event->uid, frame.payload + 4, 16);
-        event->frame = frame;
-    } else {
-        event->pad = 0;
-        event->index = 0;
-        event->dir = 0;
-        memset(event->uid, 0, sizeof(event->uid));
-    }
+    UNUSED(data);
+    UNUSED(len);
+    // if(data && len > 0) {
+    //     Frame frame;
+    //     parse_frame(&frame, data, len);
+    //     event->pad = frame.payload[0];
+    //     event->index = frame.payload[2];
+    //     event->dir = frame.payload[3];
+    //     memcpy(event->uid, frame.payload + 4, 16);
+    //     event->frame = frame;
+    // } else {
+    //     event->pad = 0;
+    //     event->index = 0;
+    //     event->dir = 0;
+    //     memset(event->uid, 0, sizeof(event->uid));
+    //     memset(&event->frame, 0, sizeof(event->frame));
+    // }
+    event->pad = 0;
+    event->index = 0;
+    event->dir = 0;
+    memset(event->uid, 0, sizeof(event->uid));
+    memset(&event->frame, 0, sizeof(event->frame));
 }
 
 // Function to build the event into a frame
 int Event_build(Event* event, unsigned char* buf) {
+    // fill the buffer with empty bytes
+    memset(buf, 0, HID_EP_SZ);
+    memset(event->frame.payload, 0, sizeof(event->frame.payload));
+
     unsigned char b[11] = {0};
     b[0] = event->pad;
     b[1] = 0;
     b[2] = event->index;
     b[3] = event->dir;
-    memcpy(b + 4, event->uid, 6);
+    memcpy(b + 4, event->uid, 7);
+    // for(int i = 0; i < 6; i++) {
+    //     b[i + 4] = event->uid[i];
+    // }
 
     // Update the event's frame
     event->frame.type = 0x56;
-    event->frame.len = sizeof(b);
+    // event->frame.len = sizeof(b);
     // Copy the event's payload into the frame
     memcpy(event->frame.payload, b, sizeof(b));
 
+    // event->frame.len = sizeof(event->frame.payload);
+    event->frame.len = 11;
+
     // Build the frame and return the size of the frame
-    return build_frame(&event->frame, buf);
+    // return build_frame(&event->frame, buf);
+
+    buf[0] = event->frame.type;
+    buf[1] = event->frame.len;
+    memcpy(buf + 2, event->frame.payload, event->frame.len);
+    // buf[event->frame.len + 2] = calculate_checksum(buf, event->frame.len + 2);
+    calculate_checksum(buf, event->frame.len + 2);
+    return event->frame.len + 3;
 }
 
 /* String descriptors */
@@ -385,13 +415,13 @@ ToyPadEmu* get_emulator() {
 Burtle* burtle; // Define the Burtle object
 
 // Generate random UID
-void ToyPadEmu_randomUID(char* uid) {
-    // srand(furi_get_tick()); // Set the seed to random value
+void ToyPadEmu_randomUID(unsigned char* uid) {
+    srand(furi_get_tick()); // Set the seed to random value
     uid[0] = 0x04; // vendor id = NXP
-    uid[6] = 0x80; // Set last byte to 0x80
-    for(int i = 1; i < 6; i++) {
+    for(int i = 1; i < 6; i++) { // Fill the middle 4 bytes
         uid[i] = rand() % 256;
     }
+    uid[6] = 0x80; // Set the last byte to 0x80
 }
 
 void ToyPadEmu_init(ToyPadEmu* emu) {
@@ -428,16 +458,15 @@ Token createCharacter(int id, const char* uid) {
 }
 
 // Add a token to a pad
-void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
+void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
     if(emu->token_count > 7) {
         return;
     }
-
-    // Token new_token = createCharacter(index, uid);
-    // new_token.index = index;
-    // new_token.pad = pad;
-
-    // emu->tokens[emu->token_count++] = new_token;
+    // when uid is null, generate a random one
+    if(uid == NULL) {
+        uid = malloc(7); // Dynamically allocate memory for uid
+        ToyPadEmu_randomUID(uid);
+    }
 
     Event* event = malloc(sizeof(Event));
     Event_init(event, NULL, 0);
@@ -445,19 +474,6 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
     // set the pad
     event->pad = pad;
     event->index = index;
-
-    // index to string for set debug text
-    // char index_str[10];
-    // snprintf(index_str, 10, "%d", event->index);
-    // // also add event->pad to the string
-    // char pad_str[10];
-    // snprintf(pad_str, 10, "%d", event->pad);
-    // snprintf(
-    //     index_str, sizeof(index_str) + sizeof(pad_str), "I: %d, P: %s", event->index, pad_str);
-
-    // set_debug_text(index_str);
-    // return;
-
     memcpy(event->uid, uid, sizeof(event->uid));
 
     // build the event
@@ -465,16 +481,15 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
 
     int len = Event_build(event, buf);
     if(len == 0) {
-        set_debug_text("Length of event is 0");
+        // set_debug_text("Length of event is 0");
         return;
     }
 
     emu->token_count++;
 
     // convert the buffer to a string
-    char string_debug[HID_EP_SZ];
+    char string_debug[HID_EP_SZ * 4];
     hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
-
     // set the debug_text_ep_in to the string
     memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
 
@@ -482,6 +497,7 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
     usbd_ep_write(usb_dev, HID_EP_IN, buf, sizeof(buf));
 
     free(event);
+    free(uid); // Free the dynamically allocated uid
 
     return;
 }
@@ -851,12 +867,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
     // Send the response
     usbd_ep_write(dev, HID_EP_IN, res_buf, sizeof(res_buf));
-}
-
-// function to write a buffer to the HID EP_IN
-void write_to_ep_in(unsigned char* buffer) {
-    sprintf(debug_text, "Writing to EP_IN");
-    usbd_ep_write(usb_dev, HID_EP_IN, buffer, sizeof(buffer));
 }
 
 /* Configure endpoints */

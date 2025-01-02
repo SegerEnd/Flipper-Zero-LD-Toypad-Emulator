@@ -66,14 +66,10 @@ uint8_t selectedBox = 0; // Variable to keep track of which toypad box is select
 // }
 
 void send_minifigure(uint32_t minifigure_index) {
-    // create a minifigure from the selected minifigure
-    char uid[6];
-    ToyPadEmu_randomUID(uid);
-
-    set_debug_text(uid);
+    // set_debug_text(uid);
 
     // place the minifigure on the selected box
-    ToyPadEmu_place(get_emulator(), selectedBox + 1, minifigure_index, uid);
+    ToyPadEmu_place(get_emulator(), selectedBox + 1, minifigure_index, NULL);
 }
 
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
@@ -282,11 +278,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    if(model->selected_minifigure_index != 0) {
-        send_minifigure(model->selected_minifigure_index);
-        model->selected_minifigure_index = 0;
-    }
-
     // poll the USB status here
     // usbd_poll(model->usbDevice);
 
@@ -483,17 +474,20 @@ void minifigures_submenu_callback(void* context, uint32_t index) {
     LDToyPadApp* app = (LDToyPadApp*)context;
 
     // print index of selected minifigure as debug text
-    char debug_text[10];
-    // convert the long unsigned int to a string
-    snprintf(debug_text, 10, "%ld", index);
-    // set the debug text
-    set_debug_text(debug_text);
+    // char debug_text[10];
+    // // convert the long unsigned int to a string
+    // snprintf(debug_text, 10, "%ld", index);
+    // // set the debug text
+    // set_debug_text(debug_text);
 
     // set current view to minifigure number to the selected index
     with_view_model(
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
-        { model->selected_minifigure_index = index; },
+        {
+            model->selected_minifigure_index = index;
+            send_minifigure(model->selected_minifigure_index);
+        },
         true);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
