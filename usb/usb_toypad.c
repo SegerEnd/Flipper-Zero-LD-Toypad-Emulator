@@ -318,22 +318,23 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
+Token createCharacter(int id, const char* uid) {
+    Token token; // Declare a token structure
+    memset(token.data, 0, sizeof(token.data)); // Fill the array with zeros
+    strncpy(token.uid, uid, sizeof(token.uid)); // Set the UID
+    token.id = id; // Set the ID
+    return token; // Return the created token
+}
+
 // Add a token to a pad
-bool ToyPadEmu_place(
-    ToyPadEmu* emu,
-    const uint8_t* token_data,
-    int pad,
-    int index,
-    const char* uid) {
+bool ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
     if(emu->token_count > 7) {
         return false;
     }
 
-    Token new_token;
+    Token new_token = createCharacter(index, uid);
     new_token.index = index;
     new_token.pad = pad;
-    strncpy(new_token.uid, uid, sizeof(new_token.uid));
-    memcpy(new_token.token, token_data, sizeof(new_token.token));
 
     emu->tokens[emu->token_count++] = new_token;
 

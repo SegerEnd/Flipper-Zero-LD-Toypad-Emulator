@@ -11,9 +11,10 @@ extern "C" {
 
 typedef struct {
     int index;
+    int id;
     int pad;
     char uid[8];
-    char token[16];
+    unsigned char data[180];
 } Token;
 
 typedef struct {

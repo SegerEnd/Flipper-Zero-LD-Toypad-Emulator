@@ -20,13 +20,6 @@ View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* ldtoypad_scene_emula
 // void ldtoypad_emulate_set_connected_status(LDToyPadEmulateView* ldtoypad_emulate, bool connected);
 
 typedef struct {
-    int id;
-    const char* name;
-    // const char* world;
-    // const char* abilities;
-} Minifigure;
-
-typedef struct {
     bool left_pressed;
     bool up_pressed;
     bool right_pressed;
@@ -35,6 +28,9 @@ typedef struct {
     bool back_pressed;
     bool connected;
     char* connection_status;
+    bool minifigure_submenu;
+
+    uint32_t selected_minifigure;
 
     // uint8_t selectedBox = 0;
 
@@ -44,3 +40,5 @@ typedef struct {
     FuriString* setting_2_name; // The name setting
     uint8_t x; // The x coordinate
 } LDToyPadSceneEmulateModel;
+
+void minifigures_submenu_callback(void* context, uint32_t index);

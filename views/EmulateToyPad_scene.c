@@ -13,6 +13,10 @@
 
 #define numBoxes 7 // the number of boxes (7 boxes always)
 
+LDToyPadApp* app;
+
+FuriHalUsbInterface* usb_mode_prev = NULL;
+
 // Selection box icon
 uint8_t I_selectionBox[] = {0xf8, 0xff, 0x00, 0x06, 0x00, 0x01, 0x03, 0x00, 0x02, 0x03, 0x00,
                             0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03,
@@ -44,25 +48,12 @@ struct LDToyPadSceneEmulate {
     // void* context;
 };
 
-// Previous USB mode
-FuriHalUsbInterface* usb_mode_prev = NULL;
-
 // The selected pad on the toypad
 uint8_t selectedBox = 0; // Variable to keep track of which toypad box is selected
 
 // Submenu* selectionMenu; // The submenu to select minifigures and vehicles for each selection box
 
 // ViewDispatcher* ldtoypad_view_dispatcher;
-
-Minifigure minifigures[] = {
-    {1, "Batman"},
-    {2, "Gandalf"},
-    {3, "Wyldstyle"},
-    {4, "Aquaman"},
-    {5, "Bad Cop"},
-    {6, "Bane"},
-    {7, "Bart Simpson"},
-    {8, "Benny"}};
 
 // void selectionMenu_callback(void* context, uint32_t index) {
 //     UNUSED(context);
@@ -81,20 +72,20 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
         instance->view,
         LDToyPadSceneEmulateModel * model,
         {
-            // if(event->key == InputKeyBack) {
-            //     if(event->type == InputTypePress) {
-            //         model->back_pressed = true;
-            //     } else if(event->type == InputTypeRelease) {
-            //         model->back_pressed = false;
-            //     }
-            // }
+            if(model->selected_minifigure != 0) {
+                // create a minifigure from the selected minifigure
+                model->selected_minifigure = 0;
+            }
+
+            // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
             if(event->key == InputKeyOk) {
                 if(event->type == InputTypePress) {
                     model->ok_pressed = true;
 
-                    // submenu_reset(selectionMenu);
+                    // set current view to minifigure selection screen
+                    view_dispatcher_switch_to_view(app->view_dispatcher, ViewMinifigureSelection);
 
-                    // submenu_set_header(selectionMenu, "Select minifig/vehicle");
+                    // submenu_reset(selectionMenu);
 
                     // for(int i = 0; minifigures[i].name != NULL; i++) {
                     //     submenu_add_item(
@@ -106,7 +97,9 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                     // }
                     // view_dispatcher_switch_to_view(
                     //     ldtoypad_view_dispatcher, LDToyPadView_SelectionMenu);
+
                     consumed = true;
+                    return consumed;
 
                 } else if(event->type == InputTypeRelease) {
                     model->ok_pressed = false;
@@ -250,22 +243,13 @@ void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
 
 void ldtoypad_scene_emulate_enter_callback(void* context) {
     UNUSED(context);
-    // furi_assert(context);
 
-    usb_mode_prev = furi_hal_usb_get_config();
-    furi_hal_usb_unlock();
-    furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
-    // get usb device
+    // not used yet
 }
 
 void ldtoypad_scene_emulate_exit_callback(void* context) {
-    // UNUSED(context);
-    furi_assert(context);
-
-    if(usb_mode_prev != NULL) {
-        furi_hal_usb_set_config(usb_mode_prev, NULL);
-    }
-    free(usb_mode_prev);
+    UNUSED(context);
+    // LDToyPadSceneEmulateModel* model = context;
 
     // ldtoypad_scene_emulate_free(context);
 }
@@ -368,14 +352,27 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context) {
     UNUSED(context);
 
+    // if(usb_mode_prev != NULL) {
+    //     furi_hal_usb_set_config(usb_mode_prev, NULL);
+    //     free(usb_mode_prev);
+    // }
+
     return ViewSubmenu;
 }
 
-LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc() {
+LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
+    furi_assert(new_app); // check if app is set;
+    app = new_app;
+
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
     instance->view = view_alloc();
 
     // ldtoypad_view_dispatcher = view_dispatcher;
+
+    usb_mode_prev = furi_hal_usb_get_config();
+
+    furi_hal_usb_unlock();
+    furi_check(furi_hal_usb_set_config(&usb_hid_ldtoypad, NULL) == true);
 
     view_set_context(instance->view, instance);
     view_allocate_model(instance->view, ViewModelTypeLockFree, sizeof(LDToyPadSceneEmulateModel));
@@ -408,12 +405,23 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     }
     free(usb_mode_prev);
 
-    // submenu_free(selectionMenu);
-
     free(ldtoypad_emulate_view);
 }
 
 View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* instance) {
     furi_assert(instance);
     return instance->view;
+}
+
+void minifigures_submenu_callback(void* context, uint32_t index) {
+    LDToyPadApp* app = (LDToyPadApp*)context;
+
+    // set current view to minifigure number to the selected index
+    with_view_model(
+        ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
+        LDToyPadSceneEmulateModel * model,
+        { model->selected_minifigure = index; },
+        true);
+
+    view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
 }
