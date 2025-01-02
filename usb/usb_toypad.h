@@ -13,8 +13,8 @@ typedef struct {
     int index;
     int id;
     int pad;
-    char uid[8];
-    unsigned char data[180];
+    char uid[7];
+    // unsigned char data[180];
 } Token;
 
 typedef struct {
@@ -51,12 +51,13 @@ typedef struct {
 } Request;
 
 // Event structure
+
 typedef struct {
-    uint8_t pad;
-    uint8_t index;
-    uint8_t dir;
-    char uid[16]; // UID as a string
     Frame frame;
+    int pad;
+    int index;
+    int dir;
+    char uid[7];
 } Event;
 
 extern FuriHalUsbInterface usb_hid_ldtoypad;
@@ -79,6 +80,24 @@ char* get_debug_text();
 void set_debug_text(char* text);
 
 usbd_device* get_usb_device();
+
+void ToyPadEmu_randomUID(char* uid);
+
+Token createCharacter(int id, const char* uid);
+
+void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid);
+
+void Event_init(Event* event, unsigned char* data, int len);
+
+int Event_build(Event* event, unsigned char* buf);
+
+void write_to_ep_in(unsigned char* buffer);
+
+int build_frame(Frame* frame, unsigned char* buf);
+
+int build_response(Response* response, unsigned char* buf);
+
+ToyPadEmu* get_emulator();
 
 #ifdef __cplusplus
 }

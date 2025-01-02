@@ -30,7 +30,7 @@ typedef struct {
     char* connection_status;
     bool minifigure_submenu;
 
-    uint32_t selected_minifigure;
+    uint32_t selected_minifigure_index;
 
     // uint8_t selectedBox = 0;
 

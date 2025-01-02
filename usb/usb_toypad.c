@@ -96,6 +96,41 @@ int build_response(Response* response, unsigned char* buf) {
     return build_frame(&response->frame, buf);
 }
 
+void Event_init(Event* event, unsigned char* data, int len) {
+    if(data && len > 0) {
+        Frame frame;
+        parse_frame(&frame, data, len);
+        event->pad = frame.payload[0];
+        event->index = frame.payload[2];
+        event->dir = frame.payload[3];
+        memcpy(event->uid, frame.payload + 4, 16);
+        event->frame = frame;
+    } else {
+        event->pad = 0;
+        event->index = 0;
+        event->dir = 0;
+        memset(event->uid, 0, sizeof(event->uid));
+    }
+}
+
+// Function to build the event into a frame
+int Event_build(Event* event, unsigned char* buf) {
+    unsigned char b[11] = {0};
+    b[0] = event->pad;
+    b[1] = 0;
+    b[2] = event->index;
+    b[3] = event->dir & 0x1; // Direction is either 0 or 1
+    memcpy(b + 4, event->uid, sizeof(event->uid));
+
+    // Update the event's frame
+    event->frame.type = 0x56;
+    event->frame.len = 11;
+    memcpy(event->frame.payload, b, 11);
+
+    // Build the frame and return the size of the frame
+    return build_frame(&event->frame, buf);
+}
+
 /* String descriptors */
 enum UsbDevDescStr {
     UsbDevLang = 0,
@@ -320,16 +355,16 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
 
 Token createCharacter(int id, const char* uid) {
     Token token; // Declare a token structure
-    memset(token.data, 0, sizeof(token.data)); // Fill the array with zeros
+    // memset(token.data, 0, sizeof(token.data)); // Fill the array with zeros
     strncpy(token.uid, uid, sizeof(token.uid)); // Set the UID
     token.id = id; // Set the ID
     return token; // Return the created token
 }
 
 // Add a token to a pad
-bool ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
+void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
     if(emu->token_count > 7) {
-        return false;
+        return;
     }
 
     Token new_token = createCharacter(index, uid);
@@ -338,7 +373,29 @@ bool ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, const char* uid) {
 
     emu->tokens[emu->token_count++] = new_token;
 
-    return true;
+    // send to usb
+    // make a event
+    Event event;
+    Event_init(&event, NULL, 0);
+
+    // set the pad
+    event.pad = pad;
+    event.index = index;
+    memcpy(event.uid, uid, 8);
+
+    // build the event
+    unsigned char buf[HID_EP_SZ];
+    int len = Event_build(&event, buf);
+
+    if(len == 0) {
+        set_debug_text("Length of event is 0");
+        return;
+    }
+
+    // send the event
+    usbd_ep_write(usb_dev, HID_EP_IN, buf, sizeof(buf));
+
+    return;
 }
 
 // Remove a token
@@ -505,6 +562,8 @@ void writeUInt32BE(uint8_t* buffer, uint32_t value) {
 void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(ep);
     UNUSED(event);
+
+    usb_dev = dev;
 
     unsigned char req_buf[HID_EP_SZ] = {0};
 
@@ -720,6 +779,12 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
     // Send the response
     usbd_ep_write(dev, HID_EP_IN, res_buf, sizeof(res_buf));
+}
+
+// function to write a buffer to the HID EP_IN
+void write_to_ep_in(unsigned char* buffer) {
+    sprintf(debug_text, "Writing to EP_IN");
+    usbd_ep_write(usb_dev, HID_EP_IN, buffer, sizeof(buffer));
 }
 
 /* Configure endpoints */
