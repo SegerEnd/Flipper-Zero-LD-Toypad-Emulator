@@ -32,7 +32,7 @@
 #define HID_EP_IN  0x81
 #define HID_EP_OUT 0x01
 
-#define HID_INTERVAL 2
+#define HID_INTERVAL 1
 
 #define HID_VID_DEFAULT 0x0e6f // Logic3
 #define HID_PID_DEFAULT 0x0241
@@ -726,27 +726,24 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         memcpy(emulator->tea_key, default_tea_key, sizeof(emulator->tea_key));
 
-        // int8_t wake_payload[HID_EP_SZ] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20,
-        //                                   0x4c, 0x45, 0x47, 0x4f, 0x20, 0x32, 0x30, 0x31,
-        //                                   0x34, 0xf7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        //                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        // unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20,
-        //                                          0x4c, 0x45, 0x47, 0x4f, 0x20, 0x32, 0x30, 0x31,
-        //                                          0x34, 0xf7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        //                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        uint8_t wake_payload_2[13] = {
+            0x28, 0x63, 0x29, 0x20, 0x4C, 0x45, 0x47, 0x4F, 0x20, 0x32, 0x30, 0x31, 0x34};
+
+        memcpy(response.payload, wake_payload_2, sizeof(wake_payload_2));
+
+        response.payload_len = sizeof(wake_payload_2);
+
+        // usbd_ep_write(dev, HID_EP_IN, wake_payload_2, sizeof(wake_payload_2));
 
         // I don't know why this is, but it seems to work. Found it in a log file of https://github.com/woodenphone/lego_dimensions_protocol/blob/master/logs/USB%20capture%20snippet.txt#L31
-        unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x19, 0x01, 0x00, 0x2f, 0x02, 0x01, 0x02,
-                                                 0x02, 0x04, 0x02, 0xf5, 0x00, 0x19, 0x8b, 0x54,
-                                                 0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
-                                                 0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
+        // unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x19, 0x01, 0x00, 0x2f, 0x02, 0x01, 0x02,
+        //                                          0x02, 0x04, 0x02, 0xf5, 0x00, 0x19, 0x8b, 0x54,
+        //                                          0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
+        //                                          0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
 
         connected_status = true;
 
-        usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
-
-        // response.payload_len = sizeof(wake_payload);
-        // memcpy(response.payload, wake_payload, response.payload_len);
+        // usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
 
         break;
     case CMD_READ:
@@ -780,37 +777,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         break;
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
-
-        // int ind = request.payload[0];
-        // int page = request.payload[1];
-
-        // // data
-        // unsigned char data[32];
-        // memcpy(data, request.payload + 2, 32);
-
-        // // The ID is stored in page 24
-        // if(page == 24 || page == 36) {
-        //     uint16_t id = data[0] | (data[1] << 8); // Read 16-bit integer (little-endian)
-        //     // const char* name = getNameFromID(id);
-        // }
-
-        // // Prepare response payload
-        // response.payload[0] = 0x00;
-
-        // Token* token = findTokenByIndex(&tp, ind);
-        // if(token) {
-        //     // Copy bytes from req.payload to token.token (4 * page, from position 2 to 6)
-        //     int start = 2;
-        //     int end = 6;
-        //     if(start < req->payload_length && end <= req->payload_length) {
-        //         memcpy(&token->token[4 * page], &req->payload[start], end - start);
-        //         printf("Token updated for index %d, page %d\n", ind, page);
-        //     } else {
-        //         printf("Invalid range for copy operation\n");
-        //     }
-        // } else {
-        //     printf("Token not found for index: %d\n", ind);
-        // }
 
         break;
     case CMD_CHAL:
