@@ -7,9 +7,7 @@ The project is currently in development, but I'm encountering some issues that I
 ## Planned Features
 Emulate Lego Dimensions ToyPad via USB using Flipper Zero.
 
-USB packet emulation for Lego Dimensions ToyPad interaction.
-
-Interface on the Flipper Zero to select minifigures and add to a slot on the toypad
+Select and place a character on the digital toypad to make it appear in the game
 
 ## Current Issues
 I'm currently facing the following issues developing the app:
