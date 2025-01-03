@@ -128,8 +128,12 @@ void parse_frame(Frame* frame, unsigned char* buf, int len) {
 }
 
 // Function to calculate checksum
-void calculate_checksum(uint8_t* buf, int length) {
+void calculate_checksum(uint8_t* buf, int length, int place) {
     uint8_t checksum = 0;
+
+    if(place == -1) {
+        place = length;
+    }
 
     // Calculate checksum (up to 'length')
     for(int i = 0; i < length; i++) {
@@ -137,7 +141,7 @@ void calculate_checksum(uint8_t* buf, int length) {
     }
 
     // Assign checksum to the last position
-    buf[length] = checksum;
+    buf[place] = checksum;
 }
 
 // Function to build a Frame into a buffer
@@ -146,7 +150,7 @@ int build_frame(Frame* frame, unsigned char* buf) {
     buf[1] = frame->len;
     memcpy(buf + 2, frame->payload, frame->len);
     // buf[frame->len + 2] = calculate_checksum(buf, frame->len + 2);
-    calculate_checksum(buf, frame->len + 2);
+    calculate_checksum(buf, frame->len + 2, -1);
     return frame->len + 3;
 }
 
@@ -224,7 +228,7 @@ int Event_build(Event* event, unsigned char* buf) {
     buf[1] = event->frame.len;
     memcpy(buf + 2, event->frame.payload, event->frame.len);
     // buf[event->frame.len + 2] = calculate_checksum(buf, event->frame.len + 2);
-    calculate_checksum(buf, event->frame.len + 2);
+    calculate_checksum(buf, event->frame.len, event->frame.len + 2);
     return event->frame.len + 2;
 }
 
@@ -485,13 +489,13 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
         return;
     }
 
-    emu->token_count++;
+    // emu->token_count++;
 
     // convert the buffer to a string
-    char string_debug[HID_EP_SZ * 4];
-    hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
-    // set the debug_text_ep_in to the string
-    memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
+    // char string_debug[HID_EP_SZ * 4];
+    // hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
+    // // set the debug_text_ep_in to the string
+    // memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
 
     // send the event
     usbd_ep_write(usb_dev, HID_EP_IN, buf, sizeof(buf));
