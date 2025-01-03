@@ -15,6 +15,7 @@ typedef struct {
     int pad;
     char uid[7];
     // unsigned char data[180];
+    char token[32];
 } Token;
 
 typedef struct {
@@ -83,11 +84,11 @@ usbd_device* get_usb_device();
 
 void ToyPadEmu_randomUID(unsigned char* uid);
 
-Token createCharacter(int id, const char* uid);
+Token createCharacter(int id, unsigned char* uid);
 
 void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid);
 
-void Event_init(Event* event, unsigned char* data, int len);
+void Event_init(Event* event);
 
 int Event_build(Event* event, unsigned char* buf);
 

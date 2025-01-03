@@ -171,9 +171,7 @@ int build_response(Response* response, unsigned char* buf) {
     return build_frame(&response->frame, buf);
 }
 
-void Event_init(Event* event, unsigned char* data, int len) {
-    UNUSED(data);
-    UNUSED(len);
+void Event_init(Event* event) {
     // if(data && len > 0) {
     //     Frame frame;
     //     parse_frame(&frame, data, len);
@@ -453,10 +451,15 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
-Token createCharacter(int id, const char* uid) {
+Token createCharacter(int id, unsigned char* uid) {
     Token token; // Declare a token structure
     // memset(token.data, 0, sizeof(token.data)); // Fill the array with zeros
-    strncpy(token.uid, uid, sizeof(token.uid)); // Set the UID
+
+    if(uid == NULL) {
+        uid = malloc(7); // Dynamically allocate memory for uid
+        ToyPadEmu_randomUID(uid);
+    }
+
     token.id = id; // Set the ID
     return token; // Return the created token
 }
@@ -473,7 +476,7 @@ void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
     }
 
     Event* event = malloc(sizeof(Event));
-    Event_init(event, NULL, 0);
+    Event_init(event);
 
     // set the pad
     event->pad = pad;

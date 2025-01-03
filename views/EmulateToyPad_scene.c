@@ -269,6 +269,31 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     }
     if(model->connected) {
         model->connection_status = "Connected to game";
+
+        // send 56 0b 01 00 00 00 04 9a 74 6a 0b 40 80 a9 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+        // char buffer[32];
+
+        // memset(buffer, 0, sizeof(buffer));
+
+        // // set the data to the buffer
+        // buffer[0] = 0x56;
+        // buffer[1] = 0x0b;
+        // buffer[2] = 0x01;
+        // buffer[3] = 0x00;
+        // buffer[4] = 0x00;
+        // buffer[5] = 0x00;
+        // buffer[6] = 0x04;
+        // buffer[7] = 0x9a;
+        // buffer[8] = 0x74;
+        // buffer[9] = 0x6a;
+        // buffer[10] = 0x0b;
+        // buffer[11] = 0x40;
+        // buffer[12] = 0x80;
+        // buffer[13] = 0xa9;
+
+        // usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
+
     } else if(get_connected_status()) {
         model->connected = true;
         model->connection_status = "USB Awoken";
