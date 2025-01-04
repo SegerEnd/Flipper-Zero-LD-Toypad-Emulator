@@ -234,8 +234,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    ToyPadEmu* emulator = get_emulator();
-
     // when there are characters in emulator->tokens for debugging show them
     if(emulator->token_count > 0) {
         char string_debug[128];
@@ -250,6 +248,11 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
                 token.index,
                 token.id);
         }
+        snprintf(
+            string_debug + strlen(string_debug),
+            sizeof(string_debug),
+            "tc: %d\n",
+            emulator->token_count);
         set_debug_text_ep_in(string_debug);
     }
 

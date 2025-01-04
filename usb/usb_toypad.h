@@ -97,7 +97,7 @@ int build_frame(Frame* frame, unsigned char* buf);
 
 int build_response(Response* response, unsigned char* buf);
 
-ToyPadEmu* get_emulator();
+extern ToyPadEmu* emulator;
 
 bool get_connected_status();
 
