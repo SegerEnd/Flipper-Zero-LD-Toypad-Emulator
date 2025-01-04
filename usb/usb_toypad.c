@@ -601,7 +601,7 @@ static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     if(hid_semaphore == NULL) hid_semaphore = furi_semaphore_alloc(1, 1);
     usb_dev = dev;
 
-    if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
+    // if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
     if(burtle == NULL) burtle = malloc(sizeof(Burtle));
 
     // hid_report.keyboard.report_id = ReportIdKeyboard;
@@ -653,7 +653,7 @@ static void hid_deinit(usbd_device* dev) {
     free(usb_hid_ldtoypad.str_manuf_descr);
     free(usb_hid_ldtoypad.str_prod_descr);
 
-    free(emulator);
+    // free(emulator);
     free(burtle);
 }
 
@@ -730,18 +730,14 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // Read data from the OUT endpoint
     int32_t len = usbd_ep_read(dev, HID_EP_OUT, req_buf, HID_EP_SZ);
 
-    // char hexValues[HID_EP_SZ];
-    // hexArrayToString(req_buf, sizeof(hexValues), hexValues, HID_EP_SZ);
-
     // Make from the data a string and save it to the debug_text_ep_out string
     sprintf(debug_text_ep_out, "%s", req_buf);
+
+    // char hexValues[HID_EP_SZ];
+    // hexArrayToString(req_buf, sizeof(hexValues), hexValues, HID_EP_SZ);
     // sprintf(debug_text_ep_out, "%s", hexValues);
 
     if(len <= 0) return;
-
-    // uint8_t cmd = req_buf[2]; // Command ID
-    // uint8_t cid = req[1];
-    // uint8_t* payload = &req[3]; // Payload starts from the third byte
 
     Frame frame;
     parse_frame(&frame, req_buf, len);

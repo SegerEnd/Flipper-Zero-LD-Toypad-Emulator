@@ -450,6 +450,8 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     free(usb_mode_prev);
 
     free(ldtoypad_emulate_view);
+
+    free(emulator);
 }
 
 View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* instance) {
