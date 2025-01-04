@@ -698,11 +698,11 @@ void writeUInt32LE(uint8_t* buffer, uint32_t value) {
 }
 
 // Function to write uint32_t to big-endian
-void writeUInt32BE(uint8_t* buffer, uint32_t value) {
-    buffer[0] = (value >> 24) & 0xFF;
-    buffer[1] = (value >> 16) & 0xFF;
-    buffer[2] = (value >> 8) & 0xFF;
-    buffer[3] = value & 0xFF;
+void writeUInt32BE(uint8_t* buffer, uint32_t value, int offset) {
+    buffer[offset] = (value >> 24) & 0xFF;
+    buffer[offset + 1] = (value >> 16) & 0xFF;
+    buffer[offset + 2] = (value >> 8) & 0xFF;
+    buffer[offset + 3] = value & 0xFF;
 }
 
 void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
@@ -807,19 +807,44 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     case CMD_READ:
         sprintf(debug_text, "CMD_READ");
 
-        int ind = request.payload[0];
+        // int ind = request.payload[0];
         int page = request.payload[1];
 
         // create a new payload of 17 bytes
-        unsigned char read_payload[17] = {0};
+        // unsigned char read_payload[17] = {0};
+        // UNUSED(read_payload);
         response.payload_len = 17;
         response.payload[0] = 0;
 
         int start = page * 4;
 
+        UNUSED(start);
+
+        // memcpy(response.payload[1], token.token[start], 16);
+
         break;
     case CMD_MODEL:
         sprintf(debug_text, "CMD_MODEL");
+
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
+
+        uint8_t index = request.payload[0];
+        conf = readUInt32BE(request.payload, 4);
+
+        // create a buf with 8 bytes
+        unsigned char buf[8] = {0};
+        writeUInt32BE(buf, conf, 4);
+
+        // write the index to the buf
+        writeUInt32LE(buf, index);
+
+        // encrypt the buf with the TEA
+        tea_encrypt(buf, emulator->tea_key, buf);
+
+        memcpy(response.payload + 1, buf, 8);
+
+        response.payload_len = 9;
+
         break;
     case CMD_SEED:
         sprintf(debug_text, "CMD_SEED");
@@ -834,7 +859,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         burtle_init(burtle, seed);
 
         memset(response.payload, 0, 8); // Fill the payload with 0 with a length of 8
-        writeUInt32BE(response.payload, conf); // Write the conf to the payload
+        writeUInt32BE(response.payload, conf, 0); // Write the conf to the payload
 
         // encrypt the request.payload with the TEA
         tea_encrypt(response.payload, emulator->tea_key, response.payload);
@@ -865,7 +890,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         writeUInt32LE(response.payload, rand);
 
         // write the conf to the response payload as Int32BE
-        writeUInt32BE(response.payload + 4, conf);
+        writeUInt32BE(response.payload + 4, conf, 0);
 
         // encrypt the response.payload with the TEA
         tea_encrypt(response.payload, emulator->tea_key, response.payload);
