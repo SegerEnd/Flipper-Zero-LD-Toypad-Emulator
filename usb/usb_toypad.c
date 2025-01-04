@@ -57,6 +57,10 @@ void set_debug_text(char* text) {
     sprintf(debug_text, "%s", text);
 }
 
+void set_debug_text_ep_in(char* text) {
+    sprintf(debug_text_ep_in, "%s", text);
+}
+
 // a function that returns a pointer to the string
 char* get_debug_text_ep_in() {
     return debug_text_ep_in;
@@ -69,8 +73,11 @@ char* get_debug_text() {
 }
 
 // a function to convert an array of bytes to a string like 0x00, 0x01, 0x02, 0x03
-void hexArrayToString(const unsigned char* array, int size, char* outputBuffer, int bufferSize) {
+void hexArrayToString(char* array, int size, char* outputBuffer, int bufferSize) {
     int currentLength = 0;
+
+    // clear previous pointers
+    memset(outputBuffer, 0, bufferSize);
 
     for(int i = 0; i < size; i++) {
         // Get the two nibbles (4-bit halves) of the current byte
@@ -101,8 +108,6 @@ void hexArrayToString(const unsigned char* array, int size, char* outputBuffer, 
     // Null-terminate the string
     if(currentLength < bufferSize) {
         outputBuffer[currentLength] = '\0';
-    } else if(bufferSize > 0) {
-        outputBuffer[bufferSize - 1] = '\0';
     }
 }
 
@@ -142,6 +147,18 @@ void calculate_checksum(uint8_t* buf, int length, int place) {
 
     // Assign checksum to the last position
     buf[place] = checksum;
+}
+
+// calculate checksum to int
+int calculate_checksum_int(uint8_t* buf, int length) {
+    uint8_t checksum = 0;
+
+    // Calculate checksum (up to 'length')
+    for(int i = 0; i < length; i++) {
+        checksum = (checksum + buf[i]) % 256;
+    }
+
+    return checksum;
 }
 
 // Function to build a Frame into a buffer
@@ -200,33 +217,57 @@ int Event_build(Event* event, unsigned char* buf) {
     memset(buf, 0, HID_EP_SZ);
     memset(event->frame.payload, 0, sizeof(event->frame.payload));
 
-    unsigned char b[11] = {0};
-    b[0] = event->pad;
-    b[1] = 0;
-    b[2] = event->index;
-    b[3] = event->dir;
-    memcpy(b + 4, event->uid, 7);
+    // unsigned char b[11] = {0};
+    // b[0] = event->pad;
+    // b[1] = 0;
+    // b[2] = event->index;
+    // b[3] = event->dir;
+    // memcpy(b + 4, event->uid, 7);
     // for(int i = 0; i < 6; i++) {
     //     b[i + 4] = event->uid[i];
     // }
 
+    // Calculate the checksum on b
+    // int checksum = calculate_checksum_int(b, sizeof(b) + 1);
+
     // Update the event's frame
-    event->frame.type = 0x56;
+    // event->frame.type = 0x56;
     // event->frame.len = sizeof(b);
     // Copy the event's payload into the frame
-    memcpy(event->frame.payload, b, sizeof(b));
+    // memcpy(event->frame.payload, b, sizeof(b));
 
     // event->frame.len = sizeof(event->frame.payload);
-    event->frame.len = 11;
+    event->frame.len = 11; // payload length
 
     // Build the frame and return the size of the frame
     // return build_frame(&event->frame, buf);
 
     buf[0] = event->frame.type;
-    buf[1] = event->frame.len;
-    memcpy(buf + 2, event->frame.payload, event->frame.len);
-    // buf[event->frame.len + 2] = calculate_checksum(buf, event->frame.len + 2);
-    calculate_checksum(buf, event->frame.len, event->frame.len + 2);
+    // buf[1] = event->frame.len;
+    buf[1] = 11;
+    buf[2] = event->pad;
+    buf[3] = 0;
+    buf[4] = event->index;
+    // buf[5] = event->dir;
+    buf[5] = 0;
+    buf[6] = 0x04;
+    buf[7] = event->uid[1];
+    buf[8] = event->uid[2];
+    buf[9] = event->uid[3];
+    buf[10] = event->uid[4];
+    buf[11] = event->uid[5];
+    buf[12] = 0x80;
+    // checksum here
+    uint8_t checksum = 0;
+
+    // Calculate checksum
+    for(int i = 0; i < 11; i++) {
+        checksum = (checksum + buf[i]) % 256;
+    }
+    buf[13] = checksum;
+
+    // buf[event->frame.len + 2] = checksum;
+
     return event->frame.len + 2;
 }
 
@@ -418,9 +459,9 @@ Burtle* burtle; // Define the Burtle object
 
 // Generate random UID
 void ToyPadEmu_randomUID(unsigned char* uid) {
+    srand(furi_get_tick()); // Set the seed to random value
     uid[0] = 0x04; // vendor id = NXP
     for(int i = 1; i < 6; i++) { // Fill the middle 4 bytes
-        srand(furi_get_tick()); // Set the seed to random value
         uid[i] = rand() % 256;
     }
     uid[6] = 0x80; // Set the last byte to 0x80
@@ -464,50 +505,66 @@ Token createCharacter(int id, unsigned char* uid) {
     return token; // Return the created token
 }
 
-// Add a token to a pad
-void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
-    if(emu->token_count > 7) {
-        return;
-    }
-    // when uid is null, generate a random one
-    if(uid == NULL) {
-        uid = malloc(7); // Dynamically allocate memory for uid
-        ToyPadEmu_randomUID(uid);
-    }
+// // Add a token to a pad
+// void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
+//     if(emu->token_count > 7) {
+//         return;
+//     }
+//     // when uid is null, generate a random one
+//     if(uid == NULL || uid[0] == 0) {
+//         uid = malloc(7);
+//         ToyPadEmu_randomUID(uid);
+//     }
 
-    Event* event = malloc(sizeof(Event));
-    Event_init(event);
+//     // build the event
+//     unsigned char buf[14];
+//     memset(buf, 0, sizeof(buf));
 
-    // set the pad
-    event->pad = pad;
-    event->index = index;
-    memcpy(event->uid, uid, sizeof(event->uid));
+//     buf[0] = 0x56;
+//     // buf[1] = event->frame.len;
+//     buf[1] = 11;
+//     buf[2] = pad;
+//     buf[3] = 0;
+//     buf[4] = index;
+//     // buf[5] = event->dir;
+//     buf[5] = 0;
+//     buf[6] = 0x04;
+//     buf[7] = uid[1];
+//     buf[8] = uid[2];
+//     buf[9] = uid[3];
+//     buf[10] = uid[4];
+//     buf[11] = uid[5];
+//     buf[12] = 0x80;
+//     // checksum here
+//     uint8_t checksum = 0;
 
-    // build the event
-    unsigned char buf[HID_EP_SZ];
+//     // Calculate checksum
+//     for(int i = 0; i < 11; i++) {
+//         checksum = (checksum + buf[i]) % 256;
+//     }
+//     buf[13] = checksum;
 
-    int len = Event_build(event, buf);
-    if(len == 0) {
-        // set_debug_text("Length of event is 0");
-        return;
-    }
+//     // emu->token_count++;
 
-    // emu->token_count++;
+//     // convert the buffer to a string
+//     char string_debug[128];
+//     memset(string_debug, 0, sizeof(string_debug));
+//     hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
+//     // set the debug_text_ep_in to the string
 
-    // convert the buffer to a string
-    // char string_debug[HID_EP_SZ * 4];
-    // hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
-    // // set the debug_text_ep_in to the string
-    // memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
+//     // set debug text ep in to empty string "nothing"
+//     memset(debug_text_ep_in, 0, sizeof(debug_text_ep_in));
 
-    // send the event
-    usbd_ep_write(usb_dev, HID_EP_IN, buf, sizeof(buf));
+//     memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
 
-    free(event);
-    free(uid); // Free the dynamically allocated uid
+//     // send the event
+//     usbd_ep_write(usb_dev, HID_EP_IN, buf, HID_EP_SZ);
 
-    return;
-}
+//     free(uid);
+//     // free(event);
+
+//     return;
+// }
 
 // Remove a token
 bool ToyPadEmu_remove(ToyPadEmu* emu, int index) {
@@ -726,6 +783,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         memcpy(emulator->tea_key, default_tea_key, sizeof(emulator->tea_key));
 
+        // From: https://github.com/AlinaNova21/node-ld/blob/f54b177d2418432688673aa07c54466d2e6041af/src/lib/ToyPadEmu.js#L139
         uint8_t wake_payload_2[13] = {
             0x28, 0x63, 0x29, 0x20, 0x4C, 0x45, 0x47, 0x4F, 0x20, 0x32, 0x30, 0x31, 0x34};
 
@@ -747,11 +805,20 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         break;
     case CMD_READ:
-        // handle_cmd_read(req + 1, res, &res_size);
         sprintf(debug_text, "CMD_READ");
+
+        int ind = request.payload[0];
+        int page = request.payload[1];
+
+        // create a new payload of 17 bytes
+        unsigned char read_payload[17] = {0};
+        response.payload_len = 17;
+        response.payload[0] = 0;
+
+        int start = page * 4;
+
         break;
     case CMD_MODEL:
-        // handle_cmd_model(req + 1, res, &res_size);
         sprintf(debug_text, "CMD_MODEL");
         break;
     case CMD_SEED:
@@ -843,7 +910,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_LEDSQ");
         break;
     default:
-        // snprintf(debug_text, HID_EP_SZ, "ERR: %02X", request.cmd);
         sprintf(debug_text, "Not a valid command");
         return;
     }

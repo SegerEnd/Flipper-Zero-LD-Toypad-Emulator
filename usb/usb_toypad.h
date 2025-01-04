@@ -14,8 +14,7 @@ typedef struct {
     int id;
     int pad;
     char uid[7];
-    // unsigned char data[180];
-    char token[32];
+    char token[180];
 } Token;
 
 typedef struct {
@@ -80,6 +79,8 @@ char* get_debug_text();
 
 void set_debug_text(char* text);
 
+void set_debug_text_ep_in(char* text);
+
 usbd_device* get_usb_device();
 
 void ToyPadEmu_randomUID(unsigned char* uid);
@@ -99,6 +100,8 @@ int build_response(Response* response, unsigned char* buf);
 ToyPadEmu* get_emulator();
 
 bool get_connected_status();
+
+void hexArrayToString(char* array, int size, char* outputBuffer, int bufferSize);
 
 #ifdef __cplusplus
 }

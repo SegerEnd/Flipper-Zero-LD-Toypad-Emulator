@@ -65,12 +65,12 @@ uint8_t selectedBox = 0; // Variable to keep track of which toypad box is select
 //     view_dispatcher_switch_to_view(ldtoypad_view_dispatcher, LDToyPadView_EmulateToyPad);
 // }
 
-void send_minifigure(uint32_t minifigure_index) {
-    // set_debug_text(uid);
+// void send_minifigure(uint32_t minifigure_index) {
+//     // set_debug_text(uid);
 
-    // place the minifigure on the selected box
-    ToyPadEmu_place(get_emulator(), selectedBox + 1, minifigure_index, NULL);
-}
+//     // place the minifigure on the selected box
+//     ToyPadEmu_place(get_emulator(), selectedBox + 1, minifigure_index, NULL);
+// }
 
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
     LDToyPadSceneEmulate* instance = context;
@@ -303,6 +303,43 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
+    if(model->selected_minifigure_index > 0) {
+        model->selected_minifigure_index = 0;
+
+        char buffer[32];
+
+        memset(buffer, 0, sizeof(buffer));
+
+        // set the data to the buffer
+        buffer[0] = 0x56;
+        buffer[1] = 0x0b;
+        buffer[2] = 0x01;
+        buffer[3] = 0x00;
+        buffer[4] = 0x00;
+        buffer[5] = 0x00;
+        buffer[6] = 0x04;
+        buffer[7] = 0x9a;
+        buffer[8] = 0x74;
+        buffer[9] = 0x6a;
+        buffer[10] = 0x0b;
+        buffer[11] = 0x40;
+        buffer[12] = 0x80;
+        buffer[13] = 0xa9;
+
+        usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
+
+        // convert the buffer to a string
+        char string_debug[128];
+        memset(string_debug, 0, sizeof(string_debug));
+        hexArrayToString(buffer, HID_EP_SZ, string_debug, sizeof(string_debug));
+        // set the debug_text_ep_in to the string
+
+        set_debug_text_ep_in("nothing");
+
+        set_debug_text_ep_in(string_debug);
+
+        // free(uid);
+    }
     // poll the USB status here
     // usbd_poll(model->usbDevice);
 
@@ -346,6 +383,14 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
     // elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
 
+    if(get_debug_text_ep_in() != NULL && strcmp(get_debug_text_ep_in(), "nothing") != 0) {
+        canvas_set_color(canvas, ColorWhite);
+        canvas_clear(canvas);
+        canvas_set_color(canvas, ColorBlack);
+
+        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, get_debug_text_ep_in());
+    }
+
     canvas_set_color(canvas, ColorWhite);
     canvas_draw_box(canvas, 0, 16, 120, 16);
     canvas_set_color(canvas, ColorBlack);
@@ -359,14 +404,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
     // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
     // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
-
-    if(get_debug_text_ep_in() != NULL && strcmp(get_debug_text_ep_in(), "nothing") != 0) {
-        canvas_set_color(canvas, ColorWhite);
-        canvas_clear(canvas);
-        canvas_set_color(canvas, ColorBlack);
-
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, get_debug_text_ep_in());
-    }
 
     // canvas_set_color(canvas, ColorWhite);
     // canvas_draw_box(canvas, 0, 32, 120, 16);
@@ -511,7 +548,9 @@ void minifigures_submenu_callback(void* context, uint32_t index) {
         LDToyPadSceneEmulateModel * model,
         {
             model->selected_minifigure_index = index;
-            send_minifigure(model->selected_minifigure_index);
+            // send_minifigure(model->selected_minifigure_index);
+            // ToyPadEmu_place(
+            //     get_emulator(), selectedBox + 1, model->selected_minifigure_index, NULL);
         },
         true);
 
