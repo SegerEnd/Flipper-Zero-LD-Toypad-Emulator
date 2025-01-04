@@ -216,65 +216,65 @@ void Event_init(Event* event) {
     memset(&event->frame, 0, sizeof(event->frame));
 }
 
-// Function to build the event into a frame
-int Event_build(Event* event, unsigned char* buf) {
-    // fill the buffer with empty bytes
-    memset(buf, 0, HID_EP_SZ);
-    memset(event->frame.payload, 0, sizeof(event->frame.payload));
+// // Function to build the event into a frame
+// int Event_build(Event* event, unsigned char* buf) {
+//     // fill the buffer with empty bytes
+//     memset(buf, 0, HID_EP_SZ);
+//     memset(event->frame.payload, 0, sizeof(event->frame.payload));
 
-    // unsigned char b[11] = {0};
-    // b[0] = event->pad;
-    // b[1] = 0;
-    // b[2] = event->index;
-    // b[3] = event->dir;
-    // memcpy(b + 4, event->uid, 7);
-    // for(int i = 0; i < 6; i++) {
-    //     b[i + 4] = event->uid[i];
-    // }
+//     // unsigned char b[11] = {0};
+//     // b[0] = event->pad;
+//     // b[1] = 0;
+//     // b[2] = event->index;
+//     // b[3] = event->dir;
+//     // memcpy(b + 4, event->uid, 7);
+//     // for(int i = 0; i < 6; i++) {
+//     //     b[i + 4] = event->uid[i];
+//     // }
 
-    // Calculate the checksum on b
-    // int checksum = calculate_checksum_int(b, sizeof(b) + 1);
+//     // Calculate the checksum on b
+//     // int checksum = calculate_checksum_int(b, sizeof(b) + 1);
 
-    // Update the event's frame
-    // event->frame.type = 0x56;
-    // event->frame.len = sizeof(b);
-    // Copy the event's payload into the frame
-    // memcpy(event->frame.payload, b, sizeof(b));
+//     // Update the event's frame
+//     // event->frame.type = 0x56;
+//     // event->frame.len = sizeof(b);
+//     // Copy the event's payload into the frame
+//     // memcpy(event->frame.payload, b, sizeof(b));
 
-    // event->frame.len = sizeof(event->frame.payload);
-    event->frame.len = 11; // payload length
+//     // event->frame.len = sizeof(event->frame.payload);
+//     event->frame.len = 11; // payload length
 
-    // Build the frame and return the size of the frame
-    // return build_frame(&event->frame, buf);
+//     // Build the frame and return the size of the frame
+//     // return build_frame(&event->frame, buf);
 
-    buf[0] = event->frame.type;
-    // buf[1] = event->frame.len;
-    buf[1] = 11;
-    buf[2] = event->pad;
-    buf[3] = 0;
-    buf[4] = event->index;
-    // buf[5] = event->dir;
-    buf[5] = 0;
-    buf[6] = 0x04;
-    buf[7] = event->uid[1];
-    buf[8] = event->uid[2];
-    buf[9] = event->uid[3];
-    buf[10] = event->uid[4];
-    buf[11] = event->uid[5];
-    buf[12] = 0x80;
-    // checksum here
-    uint8_t checksum = 0;
+//     buf[0] = event->frame.type;
+//     // buf[1] = event->frame.len;
+//     buf[1] = 11;
+//     buf[2] = event->pad;
+//     buf[3] = 0;
+//     buf[4] = event->index;
+//     // buf[5] = event->dir;
+//     buf[5] = 0;
+//     buf[6] = 0x04;
+//     buf[7] = event->uid[1];
+//     buf[8] = event->uid[2];
+//     buf[9] = event->uid[3];
+//     buf[10] = event->uid[4];
+//     buf[11] = event->uid[5];
+//     buf[12] = 0x80;
+//     // checksum here
+//     uint8_t checksum = 0;
 
-    // Calculate checksum
-    for(int i = 0; i < 11; i++) {
-        checksum = (checksum + buf[i]) % 256;
-    }
-    buf[13] = checksum;
+//     // Calculate checksum
+//     for(int i = 0; i < 11; i++) {
+//         checksum = (checksum + buf[i]) % 256;
+//     }
+//     buf[13] = checksum;
 
-    // buf[event->frame.len + 2] = checksum;
+//     // buf[event->frame.len + 2] = checksum;
 
-    return event->frame.len + 2;
-}
+//     return event->frame.len + 2;
+// }
 
 /* String descriptors */
 enum UsbDevDescStr {
