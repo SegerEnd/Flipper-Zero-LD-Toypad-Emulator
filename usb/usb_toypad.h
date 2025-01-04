@@ -24,6 +24,8 @@ typedef struct {
     uint8_t tea_key[16];
 } ToyPadEmu;
 
+extern ToyPadEmu* emulator;
+
 typedef struct {
     unsigned char type;
     unsigned char len;
@@ -96,8 +98,6 @@ int Event_build(Event* event, unsigned char* buf);
 int build_frame(Frame* frame, unsigned char* buf);
 
 int build_response(Response* response, unsigned char* buf);
-
-extern ToyPadEmu* emulator;
 
 bool get_connected_status();
 

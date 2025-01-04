@@ -54,24 +54,6 @@ struct LDToyPadSceneEmulate {
 // The selected pad on the toypad
 uint8_t selectedBox = 0; // Variable to keep track of which toypad box is selected
 
-// Submenu* selectionMenu; // The submenu to select minifigures and vehicles for each selection box
-
-// ViewDispatcher* ldtoypad_view_dispatcher;
-
-// void selectionMenu_callback(void* context, uint32_t index) {
-//     UNUSED(context);
-//     UNUSED(index);
-
-//     view_dispatcher_switch_to_view(ldtoypad_view_dispatcher, LDToyPadView_EmulateToyPad);
-// }
-
-// void send_minifigure(uint32_t minifigure_index) {
-//     // set_debug_text(uid);
-
-//     // place the minifigure on the selected box
-//     ToyPadEmu_place(get_emulator(), selectedBox + 1, minifigure_index, NULL);
-// }
-
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
     LDToyPadSceneEmulate* instance = context;
     furi_assert(instance);
@@ -417,6 +399,8 @@ static bool ldtoypad_scene_emulate_custom_event_callback(uint32_t event, void* c
 LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     furi_assert(new_app);
     app = new_app;
+
+    if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
 
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
     instance->view = view_alloc();

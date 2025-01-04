@@ -12,17 +12,6 @@ typedef enum {
     AboutSubmenuIndex,
 } AppSubmenuIndex;
 
-typedef enum {
-    AppEventIdRedrawScreen = 0, // Custom event to redraw the screen
-    AppEventIdOkPressed = 42, // Custom event to process OK button getting pressed down
-} AppEventId;
-
-typedef struct {
-    uint32_t setting_1_index; // The team color setting index
-    FuriString* setting_2_name; // The name setting
-    uint8_t x; // The x coordinate
-} AppGameModel;
-
 /**
  * @brief      Callback for exiting the application.
  * @details    This function is called when user press back button.  We return VIEW_NONE to

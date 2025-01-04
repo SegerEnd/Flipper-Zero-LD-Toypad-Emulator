@@ -40,6 +40,11 @@
 #define USB_EP0_SIZE 64
 PLACE_IN_SECTION("MB_MEM2") static uint32_t ubuf[0x20];
 
+ToyPadEmu* emulator;
+// ToyPadEmu* get_emulator() {
+//     return emulator;
+// }
+
 bool connected_status = false;
 bool get_connected_status() {
     return connected_status;
@@ -448,11 +453,6 @@ static void* hid_set_string_descr(char* str) {
 
 usbd_device* get_usb_device() {
     return usb_dev;
-}
-
-ToyPadEmu* emulator;
-ToyPadEmu* get_emulator() {
-    return emulator;
 }
 
 Burtle* burtle; // Define the Burtle object
