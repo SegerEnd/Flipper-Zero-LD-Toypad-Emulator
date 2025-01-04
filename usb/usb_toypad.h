@@ -10,9 +10,9 @@ extern "C" {
 #define HID_EP_SZ 0x20
 
 typedef struct {
-    int index;
-    int id;
-    int pad;
+    unsigned char index;
+    unsigned char id;
+    unsigned char pad;
     unsigned char uid[7];
     unsigned char token[180];
 } Token;
@@ -101,7 +101,7 @@ ToyPadEmu* get_emulator();
 
 bool get_connected_status();
 
-void hexArrayToString(char* array, int size, char* outputBuffer, int bufferSize);
+void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize);
 
 #ifdef __cplusplus
 }

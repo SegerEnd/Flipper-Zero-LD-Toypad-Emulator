@@ -73,7 +73,7 @@ char* get_debug_text() {
 }
 
 // a function to convert an array of bytes to a string like 0x00, 0x01, 0x02, 0x03
-void hexArrayToString(char* array, int size, char* outputBuffer, int bufferSize) {
+void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize) {
     int currentLength = 0;
 
     // clear previous pointers
@@ -500,14 +500,22 @@ Token createCharacter(int id) {
 
     token.id = id; // Set the ID
     // token.uid = malloc(7); // Dynamically allocate memory for uid
-    ToyPadEmu_randomUID(token.uid); // Generate a random UID
+    // ToyPadEmu_randomUID(token.uid); // Generate a random UID
+    token.uid[0] = 0x04; // uid always 0x04
+    token.uid[1] = 0x9a;
+    token.uid[2] = 0x74;
+    token.uid[3] = 0x6a;
+    token.uid[4] = 0x0b;
+    token.uid[5] = 0x40;
+    token.uid[6] = 0x80; // last uid byte 0x80
 
     return token; // Return the created token
 }
 
 void ToyPadEmu_place(Token new_token) {
     // Add the token to the emulator
-    emulator->tokens[emulator->token_count] = new_token;
+    new_token.index = emulator->token_count;
+    emulator->tokens[new_token.index] = new_token;
     emulator->token_count++;
 }
 

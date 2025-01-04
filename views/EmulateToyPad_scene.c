@@ -175,88 +175,19 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
     return consumed;
 }
 
-void ldtoypad_scene_emulate_draw_callback(Canvas* canvas, void* _model) {
-    // furi_assert(_model);
-    LDToyPadSceneEmulateModel* model = _model;
+unsigned char generate_checksum_for_command(const unsigned char* command, size_t len) {
+    // Assert that the length of the command is less than or equal to 31
+    assert(len <= 31);
 
-    canvas_clear(canvas);
-    canvas_set_color(canvas, ColorBlack);
+    unsigned char result = 0;
 
-    canvas_draw_str(canvas, 2, 7, "Emulate ToyPad");
-
-    // // Draw the toypad layout on the background
-    // canvas_draw_icon(canvas, 10, 13, &I_toypad);
-
-    // // Get position for the selected box
-    // uint8_t x = boxInfo[selectedBox][0];
-    // uint8_t y = boxInfo[selectedBox][1];
-    // // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
-    // if(selectedBox == 1) {
-    //     canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
-    // } else {
-    //     canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
-    // }
-
-    // canvas_set_font(canvas, FontPrimary);
-
-    // // Displaying the connected USB status
-    if(get_connected_status()) {
-        model->connected = true;
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Awoken");
-    } else if(model->connected) {
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Connected");
-    } else {
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, "USB Not Connected");
+    // Add bytes, wrapping naturally with unsigned char overflow
+    for(size_t i = 0; i < len; ++i) {
+        result += command[i];
     }
 
-    // // Testing pressing buttons
-    // // if(model->ok_pressed) {
-    // //     canvas_set_color(canvas, ColorWhite);
-    // //     canvas_draw_box(canvas, 43, 28, 64, 16);
-    // //     canvas_set_color(canvas, ColorBlack);
-    // //     elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
-    // // }
-
-    // // Draw a box behind the text hold to exit
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 78, 53, 75, 16);
-    // canvas_set_color(canvas, ColorBlack);
-    // canvas_set_font(canvas, FontSecondary);
-    // elements_multiline_text_aligned(canvas, 80, 55, AlignLeft, AlignTop, "Hold to exit");
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 0, 16, 120, 16);
-    // canvas_set_color(canvas, ColorBlack);
-    // canvas_set_font(canvas, FontPrimary);
-
-    // // from get_debug_text() function display the text
-    // elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
-    // elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
-
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 0, 32, 120, 16);
-    // canvas_set_color(canvas, ColorBlack);
-    // canvas_set_font(canvas, FontPrimary);
-
-    // // say ep_out before the text
-    // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
-    // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
-    // // Debugging text for watching the USB endpoints
-
-    // // Now for USB info also but below the other one
+    return result;
 }
-
-// void ldtoypad_scene_emulate_enter_callback(void* context) {
-//     UNUSED(context);
-// }
-
-// void ldtoypad_scene_emulate_exit_callback(void* context) {
-//     UNUSED(context);
-// }
-
-// uint32_t selectionMenu_prev_callback(void* context) {
-//     UNUSED(context);
-//     return LDToyPadView_EmulateToyPad;
-// }
 
 static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* context) {
     // UNUSED(context);
@@ -303,44 +234,69 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
+    ToyPadEmu* emulator = get_emulator();
+
+    // when there are characters in emulator->tokens for debugging show them
+    if(emulator->token_count > 0) {
+        char string_debug[128];
+        memset(string_debug, 0, sizeof(string_debug));
+        for(int i = 0; i < emulator->token_count; i++) {
+            Token token = emulator->tokens[i];
+            // print the index and id of the token
+            snprintf(
+                string_debug + strlen(string_debug),
+                sizeof(string_debug),
+                "index: %d, id: %d\n",
+                token.index,
+                token.id);
+        }
+        set_debug_text_ep_in(string_debug);
+    }
+
     if(model->selected_minifigure_index > 0) {
         model->selected_minifigure_index = 0;
 
-        char buffer[32];
+        unsigned char buffer[32];
 
         memset(buffer, 0, sizeof(buffer));
 
-        Token batman = createCharacter(1);
+        Token character1 = createCharacter(1);
+        character1.pad = selectedBox;
+        // ToyPadEmu_place(character1);
 
-        ToyPadEmu_place(batman);
+        character1.index = emulator->token_count;
+        emulator->tokens[character1.index] = character1;
+        emulator->token_count++;
 
         // set the data to the buffer
-        buffer[0] = 0x56;
-        buffer[1] = 0x0b;
-        buffer[2] = 0x01;
-        buffer[3] = 0x00;
-        buffer[4] = 0x00;
-        buffer[5] = 0x00;
-        buffer[6] = 0x04;
-        buffer[7] = 0x9a;
-        buffer[8] = 0x74;
-        buffer[9] = 0x6a;
-        buffer[10] = 0x0b;
-        buffer[11] = 0x40;
-        buffer[12] = 0x80;
-        buffer[13] = 0xa9;
+        buffer[0] = 0x56; // magic number always 0x56
+        buffer[1] = 0x0b; // size always 0x0b (11)
+        // buffer[2] = 0x01; // pad number?
+        buffer[2] = character1.pad;
+        buffer[3] = 0x00; // always 0
+        // buffer[4] = 0x00; //
+        buffer[4] = character1.index;
+        buffer[5] = 0x00; // tag placed / removed
+        buffer[6] = character1.uid[0]; // first uid always 0x04
+        buffer[7] = character1.uid[1];
+        buffer[8] = character1.uid[2];
+        buffer[9] = character1.uid[3];
+        buffer[10] = character1.uid[4];
+        buffer[11] = character1.uid[5];
+        buffer[12] = character1.uid[6]; // last uid byte 0x80
+        // buffer[13] = 0xa9; // checksum
+        // generate the checksum
+        buffer[13] = generate_checksum_for_command(buffer, 13);
 
         usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
 
         // convert the buffer to a string
-        char string_debug[128];
-        memset(string_debug, 0, sizeof(string_debug));
-        hexArrayToString(buffer, HID_EP_SZ, string_debug, sizeof(string_debug));
-        // set the debug_text_ep_in to the string
-
-        set_debug_text_ep_in("nothing");
-
-        set_debug_text_ep_in(string_debug);
+        // char string_debug[128];
+        // memset(string_debug, 0, sizeof(string_debug));
+        // hexArrayToString(buffer, HID_EP_SZ, string_debug, sizeof(string_debug));
+        // // set the debug_text_ep_in to the string
+        // set_debug_text_ep_in("nothing");
+        // set_debug_text_ep_in(string_debug);
 
         // free(uid);
     }
@@ -373,12 +329,12 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
 
     // Testing pressing buttons
-    if(model->ok_pressed) {
-        canvas_set_color(canvas, ColorWhite);
-        canvas_draw_box(canvas, 43, 28, 64, 16);
-        canvas_set_color(canvas, ColorBlack);
-        elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
-    }
+    // if(model->ok_pressed) {
+    //     canvas_set_color(canvas, ColorWhite);
+    //     canvas_draw_box(canvas, 43, 28, 64, 16);
+    //     canvas_set_color(canvas, ColorBlack);
+    //     elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
+    // }
 
     // canvas_set_color(canvas, ColorWhite);
     // canvas_draw_box(canvas, 0, 16, 120, 16);
@@ -401,28 +357,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
     elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
     elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
-
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 0, 32, 120, 16);
-    // canvas_set_color(canvas, ColorBlack);
-
-    // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "ep_out: ");
-    // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_out());
-
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 0, 32, 120, 16);
-    // canvas_set_color(canvas, ColorBlack);
-
-    // elements_multiline_text_aligned(canvas, 1, 33, AlignLeft, AlignTop, "send: ");
-    // elements_multiline_text_aligned(canvas, 40, 33, AlignLeft, AlignTop, get_debug_text_ep_in());
-
-    // ep in
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 0, 48, 120, 16);
-    // canvas_set_color(canvas, ColorBlack);
-
-    // elements_multiline_text_aligned(canvas, 1, 49, AlignLeft, AlignTop, "ep_in: ");
-    // elements_multiline_text_aligned(canvas, 40, 49, AlignLeft, AlignTop, get_debug_text_ep_in());
 }
 
 static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context) {
