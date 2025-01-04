@@ -51,7 +51,7 @@ char debug_text_ep_in[HID_EP_SZ * 4] = "nothing";
 // char debug_text_ep_out[] = "nothing to debug yet";
 char debug_text_ep_out[HID_EP_SZ] = "nothing";
 
-char debug_text[HID_EP_SZ] = " ";
+char debug_text[64] = " ";
 
 void set_debug_text(char* text) {
     sprintf(debug_text, "%s", text);
@@ -492,17 +492,23 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
-Token createCharacter(int id, unsigned char* uid) {
+Token createCharacter(int id) {
     Token token; // Declare a token structure
     // memset(token.data, 0, sizeof(token.data)); // Fill the array with zeros
 
-    if(uid == NULL) {
-        uid = malloc(7); // Dynamically allocate memory for uid
-        ToyPadEmu_randomUID(uid);
-    }
+    memset(token.token, 0, sizeof(token.token));
 
     token.id = id; // Set the ID
+    // token.uid = malloc(7); // Dynamically allocate memory for uid
+    ToyPadEmu_randomUID(token.uid); // Generate a random UID
+
     return token; // Return the created token
+}
+
+void ToyPadEmu_place(Token new_token) {
+    // Add the token to the emulator
+    emulator->tokens[emulator->token_count] = new_token;
+    emulator->token_count++;
 }
 
 // // Add a token to a pad
@@ -755,6 +761,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     response.payload_len = 0;
 
     uint32_t conf;
+    Token* token;
 
     switch(request.cmd) {
     case CMD_WAKE:
@@ -807,7 +814,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     case CMD_READ:
         sprintf(debug_text, "CMD_READ");
 
-        // int ind = request.payload[0];
+        int ind = request.payload[0];
         int page = request.payload[1];
 
         // create a new payload of 17 bytes
@@ -816,15 +823,27 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         response.payload_len = 17;
         response.payload[0] = 0;
 
+        token = NULL;
+
+        // Find the token that matches the ind
+        for(int i = 0; i < emulator->token_count; i++) {
+            if(emulator->tokens[i].index == ind) {
+                token = &emulator->tokens[i];
+                break;
+            }
+        }
+
         int start = page * 4;
 
-        UNUSED(start);
-
-        // memcpy(response.payload[1], token.token[start], 16);
+        if(token) {
+            memcpy(response.payload + 1, token->token + start, 16);
+        }
 
         break;
     case CMD_MODEL:
-        sprintf(debug_text, "CMD_MODEL");
+        if(!strstr(debug_text, "CMD_MODEL")) {
+            snprintf(debug_text + strlen(debug_text), sizeof(debug_text), " CMD_MODEL");
+        }
 
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
@@ -835,15 +854,31 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         unsigned char buf[8] = {0};
         writeUInt32BE(buf, conf, 4);
 
-        // write the index to the buf
-        writeUInt32LE(buf, index);
+        // find the token with the index
+        token = NULL;
+        for(int i = 0; i < emulator->token_count; i++) {
+            if(emulator->tokens[i].index == index) {
+                token = &emulator->tokens[i];
+                break;
+            }
+        }
+
+        if(token) {
+            if(token->id) {
+                writeUInt32LE(buf, token->id);
+            } else {
+                response.payload[0] = 0xF9;
+            }
+        } else {
+            response.payload[0] = 0xF2;
+        }
 
         // encrypt the buf with the TEA
         tea_encrypt(buf, emulator->tea_key, buf);
 
         memcpy(response.payload + 1, buf, 8);
 
-        response.payload_len = 9;
+        response.payload_len = 8;
 
         break;
     case CMD_SEED:
@@ -914,7 +949,9 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text, "CMD_FADRD");
         break;
     case CMD_FADAL:
-        sprintf(debug_text, "CMD_FADAL");
+        if(!strstr(debug_text, "CMD_FADAL")) {
+            snprintf(debug_text + strlen(debug_text), sizeof(debug_text), " CMD_FADAL");
+        }
         break;
     case CMD_FLSAL:
         sprintf(debug_text, "CMD_FLSAL");

@@ -310,6 +310,10 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         memset(buffer, 0, sizeof(buffer));
 
+        Token batman = createCharacter(1);
+
+        ToyPadEmu_place(batman);
+
         // set the data to the buffer
         buffer[0] = 0x56;
         buffer[1] = 0x0b;
