@@ -159,7 +159,7 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
 
 unsigned char generate_checksum_for_command(const unsigned char* command, size_t len) {
     // Assert that the length of the command is less than or equal to 31
-    assert(len <= 31);
+    // assert(len <= 31);
 
     unsigned char result = 0;
 

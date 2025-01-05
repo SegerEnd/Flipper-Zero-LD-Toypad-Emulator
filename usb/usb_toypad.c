@@ -869,7 +869,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
             if(emulator->tokens[i] != NULL) {
                 // Process the token
                 if(emulator->tokens[i]->index == index) {
-                    // snprintf(debug_text, sizeof(debug_text), "Found token %d", emulator->tokens[i]->id); // why does this crash the application?
                     token = emulator->tokens[i];
                     sprintf(debug_text_ep_in, "Found token in MODEL");
                 }
@@ -877,9 +876,11 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
                 break;
             }
         }
+        memset(response.payload, 0, 9);
 
         if(token) {
             if(token->id) {
+                sprintf(debug_text_ep_in, "Found the ID!!!");
                 writeUInt32LE(buf, token->id);
             } else {
                 response.payload[0] = 0xF9;
@@ -891,9 +892,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         // encrypt the buf with the TEA
         tea_encrypt(buf, emulator->tea_key, buf);
 
+        // copy the buf to the response payload
         memcpy(response.payload + 1, buf, 8);
 
-        response.payload_len = 8;
+        response.payload_len = 9;
 
         break;
     case CMD_SEED:
