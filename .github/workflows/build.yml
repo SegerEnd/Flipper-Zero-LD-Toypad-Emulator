@@ -8,6 +8,7 @@ on:
     ## put your main branch name under "braches"
     branches: 
       - master 
+      - main
   pull_request:
   #schedule: 
     # do a build every day
