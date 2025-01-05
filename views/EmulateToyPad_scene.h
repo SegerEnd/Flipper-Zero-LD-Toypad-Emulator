@@ -21,6 +21,8 @@ View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* ldtoypad_scene_emula
 
 // void ldtoypad_emulate_set_connected_status(LDToyPadEmulateView* ldtoypad_emulate, bool connected);
 
+unsigned char generate_checksum_for_command(const unsigned char* command, size_t len);
+
 typedef struct {
     bool left_pressed;
     bool up_pressed;

@@ -84,7 +84,9 @@ void set_debug_text_ep_in(char* text);
 
 usbd_device* get_usb_device();
 
-void ToyPadEmu_randomUID(unsigned char* uid);
+// void ToyPadEmu_randomUID(unsigned char* uid);
+
+bool ToyPadEmu_remove(int index, int selectedBox);
 
 Token* createCharacter(int id);
 
@@ -98,7 +100,8 @@ int build_frame(Frame* frame, unsigned char* buf);
 
 int build_response(Response* response, unsigned char* buf);
 
-bool get_connected_status();
+int get_connected_status();
+void set_connected_status(int status);
 
 void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize);
 

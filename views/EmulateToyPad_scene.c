@@ -37,16 +37,17 @@ struct BoxInfo {
     int x; // X-coordinate
     int y; // Y-coordinate
     bool isFilled; // Indicates if the box is filled with a Token (minifig / vehicle)
+    int index; // The index of the token in the box
 };
 
 struct BoxInfo boxInfo[] = {
-    {18, 26, false}, // Selection 0 (box)
-    {50, 20, false}, // Selection 1 (circle, assumed not filled)
-    {85, 27, false}, // Selection 2 (box)
-    {16, 40, false}, // Selection 3 (box)
-    {35, 41, false}, // Selection 4 (box)
-    {70, 41, false}, // Selection 5 (box)
-    {86, 40, false} // Selection 6 (box)
+    {18, 26, false, -1}, // Selection 0 (box)
+    {50, 20, false, -1}, // Selection 1 (circle, assumed not filled)
+    {85, 27, false, -1}, // Selection 2 (box)
+    {16, 40, false, -1}, // Selection 3 (box)
+    {35, 41, false, -1}, // Selection 4 (box)
+    {70, 41, false, -1}, // Selection 5 (box)
+    {86, 40, false, -1} // Selection 6 (box)
 };
 
 struct LDToyPadSceneEmulate {
@@ -76,21 +77,30 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                 if(event->type == InputTypePress) {
                     model->ok_pressed = true;
 
-                    // set current view to minifigure selection screen
-                    view_dispatcher_switch_to_view(app->view_dispatcher, ViewMinifigureSelection);
+                    // if the current selected box is not filled, we want to switch to the minifigure selection screen
+                    if(!boxInfo[selectedBox].isFilled) {
+                        // set current view to minifigure selection screen
+                        view_dispatcher_switch_to_view(
+                            app->view_dispatcher, ViewMinifigureSelection);
+                    } else if(boxInfo[selectedBox].isFilled) {
+                        // if the box is filled, we want to remove the minifigure from the selected box
 
-                    // submenu_reset(selectionMenu);
+                        // get the index of the minifigure in the selected box
+                        int i = -1;
 
-                    // for(int i = 0; minifigures[i].name != NULL; i++) {
-                    //     submenu_add_item(
-                    //         selectionMenu,
-                    //         minifigures[i].name,
-                    //         minifigures[i].id,
-                    //         selectionMenu_callback,
-                    //         minifigures);
-                    // }
-                    // view_dispatcher_switch_to_view(
-                    //     ldtoypad_view_dispatcher, LDToyPadView_SelectionMenu);
+                        // check if the selected box in boxInfo get the token index
+                        if(boxInfo[selectedBox].index >= 0) {
+                            i = boxInfo[selectedBox].index;
+
+                            if(ToyPadEmu_remove(i, selectedBox)) {
+                                // set the box to not filled
+                                boxInfo[selectedBox].isFilled = false;
+
+                                // set debug text
+                                set_debug_text("Removed minifigure from toypad");
+                            }
+                        }
+                    }
 
                     consumed = true;
                     return consumed;
@@ -187,36 +197,19 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->usbDevice = get_usb_device();
         model->connection_status = "USB device setting...";
     }
-    if(model->connected) {
-        model->connection_status = "Connected to game";
 
-        // send 56 0b 01 00 00 00 04 9a 74 6a 0b 40 80 a9 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-
-        // char buffer[32];
-
-        // memset(buffer, 0, sizeof(buffer));
-
-        // // set the data to the buffer
-        // buffer[0] = 0x56;
-        // buffer[1] = 0x0b;
-        // buffer[2] = 0x01;
-        // buffer[3] = 0x00;
-        // buffer[4] = 0x00;
-        // buffer[5] = 0x00;
-        // buffer[6] = 0x04;
-        // buffer[7] = 0x9a;
-        // buffer[8] = 0x74;
-        // buffer[9] = 0x6a;
-        // buffer[10] = 0x0b;
-        // buffer[11] = 0x40;
-        // buffer[12] = 0x80;
-        // buffer[13] = 0xa9;
-
-        // usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
-
-    } else if(get_connected_status()) {
+    if(get_connected_status() == 2) {
         model->connected = true;
+        set_connected_status(
+            1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
         model->connection_status = "USB Awoken";
+
+        // reset the filled boxes
+        for(int i = 0; i < numBoxes; i++) {
+            boxInfo[i].isFilled = false;
+        }
+    } else if(model->connected) {
+        model->connection_status = "Connected";
     } else if(model->usbDevice == NULL) {
         model->connection_status = "USB not yet connected";
     } else if(!model->connected) {
@@ -236,31 +229,43 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         }
 
         Token* character = createCharacter(id);
-        // character->pad = (unsigned int)selectedBox + 1;
 
         boxInfo[selectedBox].isFilled = true;
 
-        // Convert boxes to pads there are 3 pads and 7 boxes
-        // (This needs to be looked at, as I don't know the correct order yet)
-        if(selectedBox == 0) {
+        // Convert / map the boxes to pads there are 3 pads and 7 boxes
+        // TODO: This needs to be looked at, as I don't know the correct order yet
+        switch(selectedBox) {
+        case 0:
             character->pad = 1;
-        } else if(selectedBox == 1) {
+            break;
+        case 1:
             character->pad = 3;
-        } else if(selectedBox == 2) {
+            break;
+        case 2:
             character->pad = 2;
-        } else if(selectedBox == 3) {
+            break;
+        case 3:
             character->pad = 1;
-        } else if(selectedBox == 4) {
+            break;
+        case 4:
             character->pad = 1;
-        } else if(selectedBox == 5) {
+            break;
+        case 5:
             character->pad = 2;
-        } else if(selectedBox == 6) {
+            break;
+        case 6:
             character->pad = 2;
+            break;
+        default:
+            furi_crash("Selected pad is invalid"); // It should never reach this.
+            break;
         }
 
         character->index = emulator->token_count;
         emulator->tokens[character->index] = character;
         emulator->token_count++; // Set the token count for a new character
+
+        boxInfo[selectedBox].index = character->index;
 
         // set the data to the buffer
         buffer[0] = 0x56; // magic number always 0x56

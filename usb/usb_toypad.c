@@ -45,9 +45,12 @@ ToyPadEmu* emulator;
 //     return emulator;
 // }
 
-bool connected_status = false;
-bool get_connected_status() {
+int connected_status = 0;
+int get_connected_status() {
     return connected_status;
+}
+void set_connected_status(int status) {
+    connected_status = status;
 }
 
 // create a string variablethat contains the text: nothing to debug yet
@@ -521,18 +524,81 @@ Token* createCharacter(int id) {
 // }
 
 // Remove a token
-bool ToyPadEmu_remove(ToyPadEmu* emu, int index) {
-    for(int i = 0; i < emu->token_count; i++) {
-        if(emu->tokens[i]->index == index) {
-            // Shift tokens
-            for(int j = i; j < emu->token_count - 1; j++) {
-                emu->tokens[j] = emu->tokens[j + 1];
-            }
-            emu->token_count--;
-            return true;
-        }
+bool ToyPadEmu_remove(int index, int selectedBox) {
+    if(index < 0) return false;
+    if(emulator->tokens[index] == NULL) return false;
+
+    // Send to the USB device that the token has been removed
+
+    // get the token from the emulator
+
+    Token* character = emulator->tokens[index];
+    if(character == NULL) return false;
+
+    unsigned char buffer[32];
+
+    memset(buffer, 0, sizeof(buffer));
+
+    // Convert / map the boxes to pads there are 3 pads and 7 boxes
+    // TODO: This needs to be looked at, as I don't know the correct order yet
+    switch(selectedBox) {
+    case 0:
+        character->pad = 1;
+        break;
+    case 1:
+        character->pad = 3;
+        break;
+    case 2:
+        character->pad = 2;
+        break;
+    case 3:
+        character->pad = 1;
+        break;
+    case 4:
+        character->pad = 1;
+        break;
+    case 5:
+        character->pad = 2;
+        break;
+    case 6:
+        character->pad = 2;
+        break;
+    default:
+        furi_crash("Selected pad is invalid"); // It should never reach this.
+        break;
     }
-    return false;
+
+    // set the data to the buffer
+    buffer[0] = 0x56; // magic number always 0x56
+    buffer[1] = 0x0b; // size always 0x0b (11)
+    buffer[2] = character->pad;
+    buffer[3] = 0x00; // always 0
+    buffer[4] = character->index;
+    buffer[5] = 0x01; // tag placed / removed (0x00 = placed, 0x01 = removed)
+    buffer[6] = character->uid[0]; // first uid always 0x04
+    buffer[7] = character->uid[1];
+    buffer[8] = character->uid[2];
+    buffer[9] = character->uid[3];
+    buffer[10] = character->uid[4];
+    buffer[11] = character->uid[5];
+    buffer[12] = character->uid[6]; // last uid byte always 0x80
+    // generate the checksum
+    buffer[13] = generate_checksum_for_command(buffer, 13);
+
+    usbd_ep_write(usb_dev, 0x81, buffer, sizeof(buffer));
+
+    // Free the memory of the token
+    emulator->tokens[index] = NULL;
+    free(character);
+
+    // shift the tokens
+    for(int i = index; i < emulator->token_count - 1; i++) {
+        emulator->tokens[i] = emulator->tokens[i + 1];
+    }
+
+    emulator->token_count--; // Decrement the token count
+
+    return true;
 }
 
 static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
@@ -743,7 +809,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         //                                          0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
         //                                          0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
 
-        connected_status = true;
+        connected_status = 2; // connected / reconnected
 
         // usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
 
