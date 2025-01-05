@@ -32,14 +32,21 @@ uint8_t I_selectionCircle[] = {0x80, 0x7f, 0x00, 0xf0, 0xff, 0x03, 0xf8, 0xc0, 0
                                0x07, 0xf0, 0xff, 0x03, 0x80, 0x7f, 0x00};
 
 // Define box information (coordinates and dimensions) for each box (7 boxes total)
-int boxInfo[numBoxes][2] = {
-    {18, 26}, // Selection 0 (box)
-    {50, 20}, // Selection 1 (circle)
-    {85, 27}, // Selection 2 (box)
-    {16, 40}, // Selection 3 (box)
-    {35, 41}, // Selection 4 (box)
-    {70, 41}, // Selection 5 (box)
-    {86, 40} // Selection 6 (box)
+
+struct BoxInfo {
+    int x; // X-coordinate
+    int y; // Y-coordinate
+    bool isFilled; // Indicates if the box is filled with a Token (minifig / vehicle)
+};
+
+struct BoxInfo boxInfo[] = {
+    {18, 26, false}, // Selection 0 (box)
+    {50, 20, false}, // Selection 1 (circle, assumed not filled)
+    {85, 27, false}, // Selection 2 (box)
+    {16, 40, false}, // Selection 3 (box)
+    {35, 41, false}, // Selection 4 (box)
+    {70, 41, false}, // Selection 5 (box)
+    {86, 40, false} // Selection 6 (box)
 };
 
 struct LDToyPadSceneEmulate {
@@ -216,75 +223,63 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    // when there are characters in emulator->tokens for debugging show them
-    // if(emulator->token_count > 0) {
-    //     char string_debug[128];
-    //     memset(string_debug, 0, sizeof(string_debug));
-    //     for(int i = 0; i < emulator->token_count; i++) {
-    //         Token token = emulator->tokens[i];
-    //         // print the index and id of the token
-    //         snprintf(
-    //             string_debug + strlen(string_debug),
-    //             sizeof(string_debug),
-    //             "index: %d, id: %d\n",
-    //             token.index,
-    //             token.id);
-    //     }
-    //     snprintf(
-    //         string_debug + strlen(string_debug),
-    //         sizeof(string_debug),
-    //         "tc: %d\n",
-    //         emulator->token_count);
-    //     set_debug_text_ep_in(string_debug);
-    // }
-
     if(model->selected_minifigure_index > 0) {
+        int id = (int)model->selected_minifigure_index;
         model->selected_minifigure_index = 0;
 
         unsigned char buffer[32];
 
         memset(buffer, 0, sizeof(buffer));
 
-        Token* character1 = createCharacter(1);
-        character1->id = 1;
-        character1->pad = selectedBox + 1;
-        // ToyPadEmu_place(character1);
+        if(id < 1) {
+            id = 1;
+        }
 
-        character1->index = emulator->token_count;
-        emulator->tokens[character1->index] = character1;
-        emulator->token_count++;
+        Token* character = createCharacter(id);
+        // character->pad = (unsigned int)selectedBox + 1;
+
+        boxInfo[selectedBox].isFilled = true;
+
+        // Convert boxes to pads there are 3 pads and 7 boxes
+        // (This needs to be looked at, as I don't know the correct order yet)
+        if(selectedBox == 0) {
+            character->pad = 1;
+        } else if(selectedBox == 1) {
+            character->pad = 3;
+        } else if(selectedBox == 2) {
+            character->pad = 2;
+        } else if(selectedBox == 3) {
+            character->pad = 1;
+        } else if(selectedBox == 4) {
+            character->pad = 1;
+        } else if(selectedBox == 5) {
+            character->pad = 2;
+        } else if(selectedBox == 6) {
+            character->pad = 2;
+        }
+
+        character->index = emulator->token_count;
+        emulator->tokens[character->index] = character;
+        emulator->token_count++; // Set the token count for a new character
 
         // set the data to the buffer
         buffer[0] = 0x56; // magic number always 0x56
         buffer[1] = 0x0b; // size always 0x0b (11)
-        // buffer[2] = 0x01; // pad number?
-        buffer[2] = character1->pad;
+        buffer[2] = character->pad;
         buffer[3] = 0x00; // always 0
-        // buffer[4] = 0x00; //
-        buffer[4] = character1->index;
+        buffer[4] = character->index;
         buffer[5] = 0x00; // tag placed / removed
-        buffer[6] = character1->uid[0]; // first uid always 0x04
-        buffer[7] = character1->uid[1];
-        buffer[8] = character1->uid[2];
-        buffer[9] = character1->uid[3];
-        buffer[10] = character1->uid[4];
-        buffer[11] = character1->uid[5];
-        buffer[12] = character1->uid[6]; // last uid byte 0x80
-        // buffer[13] = 0xa9; // checksum
+        buffer[6] = character->uid[0]; // first uid always 0x04
+        buffer[7] = character->uid[1];
+        buffer[8] = character->uid[2];
+        buffer[9] = character->uid[3];
+        buffer[10] = character->uid[4];
+        buffer[11] = character->uid[5];
+        buffer[12] = character->uid[6]; // last uid byte always 0x80
         // generate the checksum
         buffer[13] = generate_checksum_for_command(buffer, 13);
 
         usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
-
-        // convert the buffer to a string
-        // char string_debug[128];
-        // memset(string_debug, 0, sizeof(string_debug));
-        // hexArrayToString(buffer, HID_EP_SZ, string_debug, sizeof(string_debug));
-        // // set the debug_text_ep_in to the string
-        // set_debug_text_ep_in("nothing");
-        // set_debug_text_ep_in(string_debug);
-
-        // free(uid);
     }
     // poll the USB status here
     // usbd_poll(model->usbDevice);
@@ -298,8 +293,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     canvas_draw_icon(canvas, 10, 13, &I_toypad);
 
     // Get position for the selected box
-    uint8_t x = boxInfo[selectedBox][0];
-    uint8_t y = boxInfo[selectedBox][1];
+    uint8_t x = boxInfo[selectedBox].x;
+    uint8_t y = boxInfo[selectedBox].y;
     // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
     if(selectedBox == 1) {
         canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
@@ -307,27 +302,21 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
     }
 
+    // when the box is filled, draw the minifigure icon
+    for(int i = 0; i < numBoxes; i++) {
+        if(boxInfo[i].isFilled) {
+            // Draw the minifigure icon
+            canvas_draw_icon(canvas, boxInfo[i].x + 1, boxInfo[i].y + 1, &I_head);
+        }
+    }
+
     canvas_set_font(canvas, FontPrimary);
     // elements_button_left(canvas, "Prev");
     // elements_button_center(canvas, "OK");
     // elements_button_right(canvas, "Next");
 
+    // Draw the debug text with the connection status
     elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
-
-    // Testing pressing buttons
-    // if(model->ok_pressed) {
-    //     canvas_set_color(canvas, ColorWhite);
-    //     canvas_draw_box(canvas, 43, 28, 64, 16);
-    //     canvas_set_color(canvas, ColorBlack);
-    //     elements_multiline_text_aligned(canvas, 45, 30, AlignLeft, AlignTop, "OK pressed");
-    // }
-
-    // canvas_set_color(canvas, ColorWhite);
-    // canvas_draw_box(canvas, 0, 16, 120, 16);
-    // canvas_set_color(canvas, ColorBlack);
-
-    // elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "ep_in: ");
-    // elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text_ep_in());
 
     if(get_debug_text_ep_in() != NULL && strcmp(get_debug_text_ep_in(), "nothing") != 0) {
         canvas_set_color(canvas, ColorWhite);
@@ -454,6 +443,12 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
 
     free(ldtoypad_emulate_view);
 
+    // free all the tokens ( needs a better solution later )
+    for(int i = 0; i < 128; i++) {
+        if(emulator->tokens[i] != NULL) {
+            free(emulator->tokens[i]);
+        }
+    }
     free(emulator);
 }
 

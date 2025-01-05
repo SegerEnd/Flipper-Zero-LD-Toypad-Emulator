@@ -497,15 +497,17 @@ Token* createCharacter(int id) {
 
     memset(token->token, 0, sizeof(token->token));
 
+    srand(furi_get_tick());
+
     token->id = id; // Set the ID
     // token.uid = malloc(7); // Dynamically allocate memory for uid
     // ToyPadEmu_randomUID(token.uid); // Generate a random UID
     token->uid[0] = 0x04; // uid always 0x04
-    token->uid[1] = 0x9a;
-    token->uid[2] = 0x74;
-    token->uid[3] = 0x6a;
-    token->uid[4] = 0x0b;
-    token->uid[5] = 0x40;
+    token->uid[1] = rand() % 256; // Random uid
+    token->uid[2] = rand() % 256; // Random uid
+    token->uid[3] = rand() % 256; // Random uid
+    token->uid[4] = rand() % 256; // Random uid
+    token->uid[5] = rand() % 256; // Random uid
     token->uid[6] = 0x80; // last uid byte 0x80
 
     return token; // Return the created token
@@ -516,67 +518,6 @@ Token* createCharacter(int id) {
 //     new_token->index = emulator->token_count;
 //     emulator->tokens[new_token.index] = new_token;
 //     emulator->token_count++;
-// }
-
-// // Add a token to a pad
-// void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
-//     if(emu->token_count > 7) {
-//         return;
-//     }
-//     // when uid is null, generate a random one
-//     if(uid == NULL || uid[0] == 0) {
-//         uid = malloc(7);
-//         ToyPadEmu_randomUID(uid);
-//     }
-
-//     // build the event
-//     unsigned char buf[14];
-//     memset(buf, 0, sizeof(buf));
-
-//     buf[0] = 0x56;
-//     // buf[1] = event->frame.len;
-//     buf[1] = 11;
-//     buf[2] = pad;
-//     buf[3] = 0;
-//     buf[4] = index;
-//     // buf[5] = event->dir;
-//     buf[5] = 0;
-//     buf[6] = 0x04;
-//     buf[7] = uid[1];
-//     buf[8] = uid[2];
-//     buf[9] = uid[3];
-//     buf[10] = uid[4];
-//     buf[11] = uid[5];
-//     buf[12] = 0x80;
-//     // checksum here
-//     uint8_t checksum = 0;
-
-//     // Calculate checksum
-//     for(int i = 0; i < 11; i++) {
-//         checksum = (checksum + buf[i]) % 256;
-//     }
-//     buf[13] = checksum;
-
-//     // emu->token_count++;
-
-//     // convert the buffer to a string
-//     char string_debug[128];
-//     memset(string_debug, 0, sizeof(string_debug));
-//     hexArrayToString(buf, HID_EP_SZ, string_debug, sizeof(string_debug));
-//     // set the debug_text_ep_in to the string
-
-//     // set debug text ep in to empty string "nothing"
-//     memset(debug_text_ep_in, 0, sizeof(debug_text_ep_in));
-
-//     memcpy(debug_text_ep_in, string_debug, sizeof(debug_text_ep_in));
-
-//     // send the event
-//     usbd_ep_write(usb_dev, HID_EP_IN, buf, HID_EP_SZ);
-
-//     free(uid);
-//     // free(event);
-
-//     return;
 // }
 
 // Remove a token
@@ -681,15 +622,8 @@ void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(ep);
     UNUSED(event);
     UNUSED(dev);
-    // Handle the IN endpoint
 
-    // unsigned char in_buf[HID_EP_SZ] = {0};
-
-    // int len = usbd_ep_read(dev, HID_EP_IN, in_buf, HID_EP_SZ);
-
-    // sprintf(debug_text_ep_in, "%s", in_buf);
-
-    // if(len <= 0) return;
+    // nothing to do here
 }
 
 uint32_t readUInt32LE(const unsigned char* buffer, int offset) {
@@ -870,7 +804,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
                 // Process the token
                 if(emulator->tokens[i]->index == index) {
                     token = emulator->tokens[i];
-                    sprintf(debug_text_ep_in, "Found token in MODEL");
                 }
             } else {
                 break;
@@ -880,7 +813,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         if(token) {
             if(token->id) {
-                sprintf(debug_text_ep_in, "Found the ID!!!");
                 writeUInt32LE(buf, token->id);
             } else {
                 response.payload[0] = 0xF9;

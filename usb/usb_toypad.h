@@ -12,7 +12,7 @@ extern "C" {
 typedef struct {
     unsigned char index;
     unsigned char id;
-    unsigned char pad;
+    unsigned int pad;
     unsigned char uid[7];
     unsigned char token[180];
 } Token;
