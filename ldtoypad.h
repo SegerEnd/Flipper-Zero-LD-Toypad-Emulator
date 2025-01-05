@@ -31,7 +31,8 @@ extern "C" {
 typedef struct {
     ViewDispatcher* view_dispatcher; // Switches between our views
     // NotificationApp* notifications; // Used for controlling the backlight
-    Submenu* submenu; // The application menu
+    // Submenu* submenu; // The application menu
+    View* main_menu; // The main menu screen
     TextInput* text_input; // The text input screen
     VariableItemList* variable_item_list_config; // The configuration screen
 

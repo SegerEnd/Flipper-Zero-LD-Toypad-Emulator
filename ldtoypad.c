@@ -5,6 +5,8 @@
 
 #include "minifigures.h"
 
+#include "./views/main_menu_scene.h"
+
 // Our application menu has 3 items.  You can add more items if you want.
 typedef enum {
     EmulateToyPadSubmenuIndex,
@@ -42,22 +44,22 @@ static uint32_t ldtoypad_navigation_submenu_callback(void* _context) {
  * @param      context  The context - LDToyPadApp object.
  * @param      index     The AppSubmenuIndex item that was clicked.
 */
-static void ldtoypad_submenu_callback(void* context, uint32_t index) {
-    LDToyPadApp* app = (LDToyPadApp*)context;
-    switch(index) {
-    case EmulateToyPadSubmenuIndex:
-        view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
-        break;
-    case SettingsSubmenuIndex:
-        view_dispatcher_switch_to_view(app->view_dispatcher, ViewConfigure);
-        break;
-    case AboutSubmenuIndex:
-        view_dispatcher_switch_to_view(app->view_dispatcher, ViewAbout);
-        break;
-    default:
-        break;
-    }
-}
+// static void ldtoypad_submenu_callback(void* context, uint32_t index) {
+//     LDToyPadApp* app = (LDToyPadApp*)context;
+//     switch(index) {
+//     case EmulateToyPadSubmenuIndex:
+//         view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
+//         break;
+//     case SettingsSubmenuIndex:
+//         view_dispatcher_switch_to_view(app->view_dispatcher, ViewConfigure);
+//         break;
+//     case AboutSubmenuIndex:
+//         view_dispatcher_switch_to_view(app->view_dispatcher, ViewAbout);
+//         break;
+//     default:
+//         break;
+//     }
+// }
 
 /**
  * First setting is the show debug text setting. This setting has 2 options: yes or no. Default is no.
@@ -98,16 +100,6 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     view_dispatcher = app->view_dispatcher;
     view_dispatcher_attach_to_gui(app->view_dispatcher, gui, ViewDispatcherTypeFullscreen);
     view_dispatcher_set_event_callback_context(app->view_dispatcher, app);
-
-    app->submenu = submenu_alloc();
-    submenu_add_item(
-        app->submenu, "Emulate", EmulateToyPadSubmenuIndex, ldtoypad_submenu_callback, app);
-    submenu_add_item(app->submenu, "Config", SettingsSubmenuIndex, ldtoypad_submenu_callback, app);
-    submenu_add_item(app->submenu, "About", AboutSubmenuIndex, ldtoypad_submenu_callback, app);
-
-    view_set_previous_callback(submenu_get_view(app->submenu), ldtoypad_navigation_exit_callback);
-    view_dispatcher_add_view(app->view_dispatcher, ViewSubmenu, submenu_get_view(app->submenu));
-    view_dispatcher_switch_to_view(app->view_dispatcher, ViewSubmenu);
 
     app->text_input = text_input_alloc();
     view_dispatcher_add_view(
@@ -150,6 +142,26 @@ static LDToyPadApp* ldtoypad_app_alloc() {
 
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
+
+    // app->submenu = submenu_alloc();
+    // submenu_add_item(
+    //     app->submenu, "Emulate", EmulateToyPadSubmenuIndex, ldtoypad_submenu_callback, app);
+    // submenu_add_item(app->submenu, "Config", SettingsSubmenuIndex, ldtoypad_submenu_callback, app);
+    // submenu_add_item(app->submenu, "About", AboutSubmenuIndex, ldtoypad_submenu_callback, app);
+
+    // view_set_previous_callback(submenu_get_view(app->submenu), ldtoypad_navigation_exit_callback);
+    // view_dispatcher_add_view(app->view_dispatcher, ViewSubmenu, submenu_get_view(app->submenu));
+    // view_dispatcher_switch_to_view(app->view_dispatcher, ViewSubmenu);
+
+    // main menu is the new submenu
+    app->main_menu = view_alloc();
+    view_set_draw_callback(app->main_menu, ldtoypad_main_menu_scene_draw);
+    view_set_previous_callback(app->main_menu, ldtoypad_navigation_exit_callback);
+    view_dispatcher_add_view(app->view_dispatcher, ViewSubmenu, app->main_menu);
+    view_dispatcher_switch_to_view(app->view_dispatcher, ViewSubmenu);
+    view_set_context(app->main_menu, app);
+    view_set_input_callback(app->main_menu, ldtoypad_main_menu_scene_input_callback);
+    view_allocate_model(app->main_menu, ViewModelTypeLockFree, sizeof(LDToyPadSceneEmulateModel));
 
     model->show_debug_text_index = setting_show_debug_text_index;
     // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);
@@ -219,7 +231,8 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     variable_item_list_free(app->variable_item_list_config);
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewSubmenu);
-    submenu_free(app->submenu);
+    // submenu_free(app->submenu);
+    view_free(app->main_menu);
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewMinifigureSelection);
     submenu_free(app->submenu_minifigure_selection);
