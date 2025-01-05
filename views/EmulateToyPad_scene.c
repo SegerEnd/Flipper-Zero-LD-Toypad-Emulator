@@ -195,25 +195,25 @@ void selectedBox_to_pad(Token* new_character, int selectedBox) {
     // TODO: This needs to be looked at, as I don't know the correct order yet
     switch(selectedBox) {
     case 0:
-        new_character->pad = 3;
+        new_character->pad = 2;
         break;
     case 1:
-        new_character->pad = 1;
+        new_character->pad = 1; // Circle
         break;
     case 2:
-        new_character->pad = 2;
+        new_character->pad = 3;
         break;
     case 3:
-        new_character->pad = 3;
+        new_character->pad = 2;
         break;
     case 4:
-        new_character->pad = 3;
+        new_character->pad = 2;
         break;
     case 5:
-        new_character->pad = 2;
+        new_character->pad = 3;
         break;
     case 6:
-        new_character->pad = 2;
+        new_character->pad = 3;
         break;
     default:
         furi_crash("Selected pad is invalid"); // It should never reach this.
