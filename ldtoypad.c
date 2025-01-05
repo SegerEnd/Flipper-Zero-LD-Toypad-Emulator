@@ -72,18 +72,18 @@ static void ldtoypad_submenu_callback(void* context, uint32_t index) {
 }
 
 /**
- * Our 1st sample setting is a team color.  We have 3 options: red, green, and blue.
+ * First setting is the show debug text setting. This setting has 2 options: yes or no. Default is no.
 */
-static const char* setting_1_config_label = "Team color";
-static uint8_t setting_1_values[] = {1, 2, 4};
-static char* setting_1_names[] = {"Red", "Green", "Blue"};
-static void ldtoypad_setting_1_change(VariableItem* item) {
+static const char* setting_show_debug_text_config_label = "Show Debug text";
+static uint8_t setting_show_debug_text_values[] = {false, true};
+static char* setting_show_debug_text_names[] = {"No", "Yes"};
+static void ldtoypad_setting_setting_show_debug_text_index_change(VariableItem* item) {
     LDToyPadApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
-    variable_item_set_current_value_text(item, setting_1_names[index]);
+    variable_item_set_current_value_text(item, setting_show_debug_text_names[index]);
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
-    model->setting_1_index = index;
+    model->show_debug_text_index = index;
 }
 
 /**
@@ -202,13 +202,15 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     variable_item_list_reset(app->variable_item_list_config);
     VariableItem* item = variable_item_list_add(
         app->variable_item_list_config,
-        setting_1_config_label,
-        COUNT_OF(setting_1_values),
-        ldtoypad_setting_1_change,
+        setting_show_debug_text_config_label,
+        COUNT_OF(setting_show_debug_text_values),
+        ldtoypad_setting_setting_show_debug_text_index_change,
         app);
-    uint8_t setting_1_index = 0;
-    variable_item_set_current_value_index(item, setting_1_index);
-    variable_item_set_current_value_text(item, setting_1_names[setting_1_index]);
+
+    bool setting_show_debug_text_index = 0;
+    variable_item_set_current_value_index(item, setting_show_debug_text_index);
+    variable_item_set_current_value_text(
+        item, setting_show_debug_text_names[setting_show_debug_text_index]);
 
     FuriString* setting_2_name = furi_string_alloc();
     furi_string_set_str(setting_2_name, setting_2_default_value);
@@ -241,7 +243,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
 
-    model->setting_1_index = setting_1_index;
+    model->show_debug_text_index = setting_show_debug_text_index;
     model->setting_2_name = setting_2_name;
     model->x = 0;
     // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);

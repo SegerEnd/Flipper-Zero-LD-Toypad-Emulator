@@ -247,7 +247,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    if(model->selected_minifigure_index > 0) {
+    if(model->selected_minifigure_index > 0 && model->connected) {
         int id = (int)model->selected_minifigure_index;
         model->selected_minifigure_index = 0;
 
@@ -290,15 +290,11 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
     }
-    // poll the USB status here
-    // usbd_poll(model->usbDevice);
 
     canvas_clear(canvas);
-    canvas_set_font(canvas, FontSecondary);
+    canvas_set_font(canvas, FontPrimary);
 
-    // canvas_draw_str_aligned(canvas, (128 - 40), 5, AlignCenter, AlignTop, "Select here");
-    // canvas_draw_str(canvas, 2, 7, "Emulate ToyPad");
-
+    // Draw the big toypad image as decoration for the background of the screen
     canvas_draw_icon(canvas, 10, 13, &I_toypad);
 
     // Get position for the selected box
@@ -319,28 +315,29 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         }
     }
 
-    canvas_set_font(canvas, FontPrimary);
-    // elements_button_left(canvas, "Prev");
-    // elements_button_center(canvas, "OK");
-    // elements_button_right(canvas, "Next");
-
-    // Draw the debug text with the connection status
     elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
 
-    if(get_debug_text_ep_in() != NULL && strcmp(get_debug_text_ep_in(), "nothing") != 0) {
+    if(model->show_debug_text_index) {
+        // elements_button_left(canvas, "Prev");
+        // elements_button_center(canvas, "OK");
+        // elements_button_right(canvas, "Next");
+
+        if(get_debug_text_ep_in() != NULL && strcmp(get_debug_text_ep_in(), "nothing") != 0) {
+            canvas_set_color(canvas, ColorWhite);
+            canvas_clear(canvas);
+            canvas_set_color(canvas, ColorBlack);
+
+            elements_multiline_text_aligned(
+                canvas, 1, 1, AlignLeft, AlignTop, get_debug_text_ep_in());
+        }
+
         canvas_set_color(canvas, ColorWhite);
-        canvas_clear(canvas);
+        canvas_draw_box(canvas, 0, 16, 120, 16);
         canvas_set_color(canvas, ColorBlack);
 
-        elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, get_debug_text_ep_in());
+        elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
+        elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
     }
-
-    canvas_set_color(canvas, ColorWhite);
-    canvas_draw_box(canvas, 0, 16, 120, 16);
-    canvas_set_color(canvas, ColorBlack);
-
-    elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
-    elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
 }
 
 static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context) {
