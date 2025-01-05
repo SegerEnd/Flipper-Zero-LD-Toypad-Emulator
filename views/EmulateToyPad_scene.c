@@ -11,6 +11,8 @@
 #include <gui/elements.h>
 // #include <gui/icon_i.h> // Not yet needed apparently
 
+#include "dolphin/dolphin.h"
+
 #define numBoxes 7 // the number of boxes (7 boxes always)
 
 LDToyPadApp* app;
@@ -239,6 +241,9 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         for(int i = 0; i < numBoxes; i++) {
             boxInfo[i].isFilled = false;
         }
+
+        // Give dolphin some xp for connecting the toypad
+        dolphin_deed(DolphinDeedPluginStart);
     } else if(model->connected) {
         model->connection_status = "Connected";
     } else if(model->usbDevice == NULL) {
@@ -289,6 +294,9 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         buffer[13] = generate_checksum_for_command(buffer, 13);
 
         usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
+
+        // Give dolphin some xp for placing a minifigure
+        dolphin_deed(DolphinDeedNfcReadSuccess);
     }
 
     canvas_clear(canvas);
@@ -311,7 +319,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     for(int i = 0; i < numBoxes; i++) {
         if(boxInfo[i].isFilled) {
             // Draw the minifigure icon
-            canvas_draw_icon(canvas, boxInfo[i].x + 1, boxInfo[i].y + 1, &I_head);
+            canvas_draw_icon(canvas, boxInfo[i].x + 3, boxInfo[i].y + 3, &I_head);
         }
     }
 

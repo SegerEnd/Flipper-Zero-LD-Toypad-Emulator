@@ -37,18 +37,6 @@ static uint32_t ldtoypad_navigation_submenu_callback(void* _context) {
 }
 
 /**
- * @brief      Callback for returning to configure screen.
- * @details    This function is called when user press back button.  We return VIEW_NONE to
- *            indicate that we want to navigate to the configure screen.
- * @param      _context  The context - unused
- * @return     next view id
-*/
-static uint32_t ldtoypad_navigation_configure_callback(void* _context) {
-    UNUSED(_context);
-    return ViewConfigure;
-}
-
-/**
  * @brief      Handle submenu item selection.
  * @details    This function is called when user selects an item from the submenu.
  * @param      context  The context - LDToyPadApp object.
@@ -84,77 +72,6 @@ static void ldtoypad_setting_setting_show_debug_text_index_change(VariableItem* 
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
     model->show_debug_text_index = index;
-}
-
-/**
- * Our 2nd sample setting is a text field.  When the user clicks OK on the configuration 
- * setting we use a text input screen to allow the user to enter a name.  This function is
- * called when the user clicks OK on the text input screen.
-*/
-static const char* setting_2_config_label = "Name";
-static const char* setting_2_entry_text = "Enter name";
-static const char* setting_2_default_value = "Bob";
-static void ldtoypad_setting_2_text_updated(void* context) {
-    LDToyPadApp* app = (LDToyPadApp*)context;
-    bool redraw = true;
-    with_view_model(
-        ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
-        LDToyPadSceneEmulateModel * model,
-        {
-            furi_string_set(model->setting_2_name, app->temp_buffer);
-            variable_item_set_current_value_text(
-                app->setting_2_item, furi_string_get_cstr(model->setting_2_name));
-        },
-        redraw);
-    view_dispatcher_switch_to_view(app->view_dispatcher, ViewConfigure);
-}
-
-/**
- * @brief      Callback when item in configuration screen is clicked.
- * @details    This function is called when user clicks OK on an item in the configuration screen.
- *            If the item clicked is our text field then we switch to the text input screen.
- * @param      context  The context - LDToyPadApp object.
- * @param      index - The index of the item that was clicked.
-*/
-static void ldtoypad_setting_item_clicked(void* context, uint32_t index) {
-    LDToyPadApp* app = (LDToyPadApp*)context;
-    index++; // The index starts at zero, but we want to start at 1.
-
-    // Our configuration UI has the 2nd item as a text field.
-    if(index == 2) {
-        // Header to display on the text input screen.
-        text_input_set_header_text(app->text_input, setting_2_entry_text);
-
-        // Copy the current name into the temporary buffer.
-        bool redraw = false;
-        with_view_model(
-            ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
-            LDToyPadSceneEmulateModel * model,
-            {
-                strncpy(
-                    app->temp_buffer,
-                    furi_string_get_cstr(model->setting_2_name),
-                    app->temp_buffer_size);
-            },
-            redraw);
-
-        // Configure the text input.  When user enters text and clicks OK, ldtoypad_setting_text_updated be called.
-        bool clear_previous_text = false;
-        text_input_set_result_callback(
-            app->text_input,
-            ldtoypad_setting_2_text_updated,
-            app,
-            app->temp_buffer,
-            app->temp_buffer_size,
-            clear_previous_text);
-
-        // Pressing the BACK button will reload the configure screen.
-        view_set_previous_callback(
-            text_input_get_view(app->text_input), ldtoypad_navigation_configure_callback);
-
-        // Show text input dialog.
-        view_dispatcher_switch_to_view(app->view_dispatcher, ViewTextInput);
-    }
 }
 
 static uint32_t minifigures_submenu_previous_callback(void* context) {
@@ -212,15 +129,6 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     variable_item_set_current_value_text(
         item, setting_show_debug_text_names[setting_show_debug_text_index]);
 
-    FuriString* setting_2_name = furi_string_alloc();
-    furi_string_set_str(setting_2_name, setting_2_default_value);
-    app->setting_2_item = variable_item_list_add(
-        app->variable_item_list_config, setting_2_config_label, 1, NULL, NULL);
-    variable_item_set_current_value_text(
-        app->setting_2_item, furi_string_get_cstr(setting_2_name));
-    variable_item_list_set_enter_callback(
-        app->variable_item_list_config, ldtoypad_setting_item_clicked, app);
-
     view_set_previous_callback(
         variable_item_list_get_view(app->variable_item_list_config),
         ldtoypad_navigation_submenu_callback);
@@ -244,8 +152,6 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
 
     model->show_debug_text_index = setting_show_debug_text_index;
-    model->setting_2_name = setting_2_name;
-    model->x = 0;
     // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);
     view_dispatcher_add_view(
         app->view_dispatcher,

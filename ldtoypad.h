@@ -40,7 +40,6 @@ typedef struct {
 
     Widget* widget_about; // The about screen
 
-    VariableItem* setting_2_item; // The name setting item (so we can update the text)
     char* temp_buffer; // Temporary buffer for text input
     uint32_t temp_buffer_size; // Size of temporary buffer
 

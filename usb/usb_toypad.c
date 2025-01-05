@@ -784,8 +784,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         //                                          0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
         //                                          0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
 
-        connected_status = 2; // connected / reconnected
-
         // usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
 
         break;
@@ -869,7 +867,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         memcpy(response.payload + 1, buf, 8);
 
         response.payload_len = 9;
-
         break;
     case CMD_SEED:
         sprintf(debug_text, "CMD_SEED");
@@ -921,6 +918,8 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         tea_encrypt(response.payload, emulator->tea_key, response.payload);
 
         response.payload_len = 8;
+
+        connected_status = 2; // connected / reconnected
 
         break;
     case CMD_COL:

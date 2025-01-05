@@ -44,8 +44,6 @@ typedef struct {
 
     // uint32_t setting_1_index; // The team color setting index
     bool show_debug_text_index;
-    FuriString* setting_2_name; // The name setting
-    uint8_t x; // The x coordinate
 } LDToyPadSceneEmulateModel;
 
 void minifigures_submenu_callback(void* context, uint32_t index);
