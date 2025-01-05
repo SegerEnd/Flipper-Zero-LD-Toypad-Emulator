@@ -539,34 +539,7 @@ bool ToyPadEmu_remove(int index, int selectedBox) {
 
     memset(buffer, 0, sizeof(buffer));
 
-    // Convert / map the boxes to pads there are 3 pads and 7 boxes
-    // TODO: This needs to be looked at, as I don't know the correct order yet
-    switch(selectedBox) {
-    case 0:
-        character->pad = 1;
-        break;
-    case 1:
-        character->pad = 3;
-        break;
-    case 2:
-        character->pad = 2;
-        break;
-    case 3:
-        character->pad = 1;
-        break;
-    case 4:
-        character->pad = 1;
-        break;
-    case 5:
-        character->pad = 2;
-        break;
-    case 6:
-        character->pad = 2;
-        break;
-    default:
-        furi_crash("Selected pad is invalid"); // It should never reach this.
-        break;
-    }
+    selectedBox_to_pad(character, selectedBox);
 
     // set the data to the buffer
     buffer[0] = 0x56; // magic number always 0x56
@@ -591,12 +564,14 @@ bool ToyPadEmu_remove(int index, int selectedBox) {
     emulator->tokens[index] = NULL;
     free(character);
 
+    // free the token
+    free(emulator->tokens[index]);
+    emulator->token_count--; // Decrement the token count
+
     // shift the tokens
     for(int i = index; i < emulator->token_count - 1; i++) {
         emulator->tokens[i] = emulator->tokens[i + 1];
     }
-
-    emulator->token_count--; // Decrement the token count
 
     return true;
 }

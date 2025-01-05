@@ -23,6 +23,8 @@ View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* ldtoypad_scene_emula
 
 unsigned char generate_checksum_for_command(const unsigned char* command, size_t len);
 
+void selectedBox_to_pad(Token* new_character, int selectedBox);
+
 typedef struct {
     bool left_pressed;
     bool up_pressed;

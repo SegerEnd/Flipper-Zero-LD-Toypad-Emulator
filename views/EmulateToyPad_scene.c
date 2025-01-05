@@ -188,6 +188,37 @@ unsigned char generate_checksum_for_command(const unsigned char* command, size_t
     return result;
 }
 
+void selectedBox_to_pad(Token* new_character, int selectedBox) {
+    // Convert / map the boxes to pads there are 3 pads and 7 boxes
+    // TODO: This needs to be looked at, as I don't know the correct order yet
+    switch(selectedBox) {
+    case 0:
+        new_character->pad = 1;
+        break;
+    case 1:
+        new_character->pad = 3;
+        break;
+    case 2:
+        new_character->pad = 2;
+        break;
+    case 3:
+        new_character->pad = 1;
+        break;
+    case 4:
+        new_character->pad = 1;
+        break;
+    case 5:
+        new_character->pad = 2;
+        break;
+    case 6:
+        new_character->pad = 2;
+        break;
+    default:
+        furi_crash("Selected pad is invalid"); // It should never reach this.
+        break;
+    }
+}
+
 static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* context) {
     // UNUSED(context);
     LDToyPadSceneEmulateModel* model = context;
@@ -232,34 +263,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         boxInfo[selectedBox].isFilled = true;
 
-        // Convert / map the boxes to pads there are 3 pads and 7 boxes
-        // TODO: This needs to be looked at, as I don't know the correct order yet
-        switch(selectedBox) {
-        case 0:
-            character->pad = 1;
-            break;
-        case 1:
-            character->pad = 3;
-            break;
-        case 2:
-            character->pad = 2;
-            break;
-        case 3:
-            character->pad = 1;
-            break;
-        case 4:
-            character->pad = 1;
-            break;
-        case 5:
-            character->pad = 2;
-            break;
-        case 6:
-            character->pad = 2;
-            break;
-        default:
-            furi_crash("Selected pad is invalid"); // It should never reach this.
-            break;
-        }
+        selectedBox_to_pad(character, selectedBox);
 
         character->index = emulator->token_count;
         emulator->tokens[character->index] = character;
