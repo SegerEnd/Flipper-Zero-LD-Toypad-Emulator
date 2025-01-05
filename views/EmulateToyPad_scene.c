@@ -76,7 +76,7 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
         {
             // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
             if(event->key == InputKeyOk) {
-                if(event->type == InputTypePress) {
+                if(event->type == InputTypePress && model->connected) {
                     model->ok_pressed = true;
 
                     // if the current selected box is not filled, we want to switch to the minifigure selection screen
@@ -486,10 +486,9 @@ void minifigures_submenu_callback(void* context, uint32_t index) {
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
         {
-            model->selected_minifigure_index = index;
-            // send_minifigure(model->selected_minifigure_index);
-            // ToyPadEmu_place(
-            //     get_emulator(), selectedBox + 1, model->selected_minifigure_index, NULL);
+            if(model->connected) {
+                model->selected_minifigure_index = index;
+            }
         },
         true);
 

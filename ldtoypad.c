@@ -165,7 +165,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         0,
         128,
         64,
-        "This is a WIP application.\n---\nauthor: Seger\nhttps://github.com/SegerEnd");
+        "This is a educational project to learn how to interact and reverse engineer a Toy Pad with a Flipper Zero.\n\nhttps://github.com/SegerEnd/Flipper-Zero-LD-Toypad-Emulator \n\nCredits: \n- Berny23 for the JavaScript Toy Pad Emulator for the Raspberry Pi\n- AlinaNova21 for the Node-LD project (Node.js Lego Dimensions Library)\n- woodenphone for the analysis of the Lego Dimensions Protocol");
     view_set_previous_callback(
         widget_get_view(app->widget_about), ldtoypad_navigation_submenu_callback);
 
