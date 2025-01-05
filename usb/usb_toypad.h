@@ -18,9 +18,8 @@ typedef struct {
 } Token;
 
 typedef struct {
-    Token tokens[128];
+    Token* tokens[128];
     int token_count;
-    void (*transport_write)(const char* data);
     uint8_t tea_key[16];
 } ToyPadEmu;
 
@@ -87,9 +86,9 @@ usbd_device* get_usb_device();
 
 void ToyPadEmu_randomUID(unsigned char* uid);
 
-Token createCharacter(int id);
+Token* createCharacter(int id);
 
-void ToyPadEmu_place(Token token);
+// void ToyPadEmu_place(Token token);
 
 void Event_init(Event* event);
 

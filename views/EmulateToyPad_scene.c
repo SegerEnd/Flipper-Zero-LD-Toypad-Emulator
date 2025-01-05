@@ -217,26 +217,26 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     }
 
     // when there are characters in emulator->tokens for debugging show them
-    if(emulator->token_count > 0) {
-        char string_debug[128];
-        memset(string_debug, 0, sizeof(string_debug));
-        for(int i = 0; i < emulator->token_count; i++) {
-            Token token = emulator->tokens[i];
-            // print the index and id of the token
-            snprintf(
-                string_debug + strlen(string_debug),
-                sizeof(string_debug),
-                "index: %d, id: %d\n",
-                token.index,
-                token.id);
-        }
-        snprintf(
-            string_debug + strlen(string_debug),
-            sizeof(string_debug),
-            "tc: %d\n",
-            emulator->token_count);
-        set_debug_text_ep_in(string_debug);
-    }
+    // if(emulator->token_count > 0) {
+    //     char string_debug[128];
+    //     memset(string_debug, 0, sizeof(string_debug));
+    //     for(int i = 0; i < emulator->token_count; i++) {
+    //         Token token = emulator->tokens[i];
+    //         // print the index and id of the token
+    //         snprintf(
+    //             string_debug + strlen(string_debug),
+    //             sizeof(string_debug),
+    //             "index: %d, id: %d\n",
+    //             token.index,
+    //             token.id);
+    //     }
+    //     snprintf(
+    //         string_debug + strlen(string_debug),
+    //         sizeof(string_debug),
+    //         "tc: %d\n",
+    //         emulator->token_count);
+    //     set_debug_text_ep_in(string_debug);
+    // }
 
     if(model->selected_minifigure_index > 0) {
         model->selected_minifigure_index = 0;
@@ -245,30 +245,31 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         memset(buffer, 0, sizeof(buffer));
 
-        Token character1 = createCharacter(1);
-        character1.pad = selectedBox;
+        Token* character1 = createCharacter(1);
+        character1->id = 1;
+        character1->pad = selectedBox + 1;
         // ToyPadEmu_place(character1);
 
-        character1.index = emulator->token_count;
-        emulator->tokens[character1.index] = character1;
+        character1->index = emulator->token_count;
+        emulator->tokens[character1->index] = character1;
         emulator->token_count++;
 
         // set the data to the buffer
         buffer[0] = 0x56; // magic number always 0x56
         buffer[1] = 0x0b; // size always 0x0b (11)
         // buffer[2] = 0x01; // pad number?
-        buffer[2] = character1.pad;
+        buffer[2] = character1->pad;
         buffer[3] = 0x00; // always 0
         // buffer[4] = 0x00; //
-        buffer[4] = character1.index;
+        buffer[4] = character1->index;
         buffer[5] = 0x00; // tag placed / removed
-        buffer[6] = character1.uid[0]; // first uid always 0x04
-        buffer[7] = character1.uid[1];
-        buffer[8] = character1.uid[2];
-        buffer[9] = character1.uid[3];
-        buffer[10] = character1.uid[4];
-        buffer[11] = character1.uid[5];
-        buffer[12] = character1.uid[6]; // last uid byte 0x80
+        buffer[6] = character1->uid[0]; // first uid always 0x04
+        buffer[7] = character1->uid[1];
+        buffer[8] = character1->uid[2];
+        buffer[9] = character1->uid[3];
+        buffer[10] = character1->uid[4];
+        buffer[11] = character1->uid[5];
+        buffer[12] = character1->uid[6]; // last uid byte 0x80
         // buffer[13] = 0xa9; // checksum
         // generate the checksum
         buffer[13] = generate_checksum_for_command(buffer, 13);
@@ -401,6 +402,8 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     app = new_app;
 
     if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
+    emulator->token_count = 0;
+    memset(emulator->tokens, 0, sizeof(emulator->tokens));
 
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
     instance->view = view_alloc();

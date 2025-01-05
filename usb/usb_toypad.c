@@ -492,32 +492,31 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
-Token createCharacter(int id) {
-    Token token; // Declare a token structure
-    // memset(token.data, 0, sizeof(token.data)); // Fill the array with zeros
+Token* createCharacter(int id) {
+    Token* token = malloc(sizeof(Token)); // Allocate memory for the token
 
-    memset(token.token, 0, sizeof(token.token));
+    memset(token->token, 0, sizeof(token->token));
 
-    token.id = id; // Set the ID
+    token->id = id; // Set the ID
     // token.uid = malloc(7); // Dynamically allocate memory for uid
     // ToyPadEmu_randomUID(token.uid); // Generate a random UID
-    token.uid[0] = 0x04; // uid always 0x04
-    token.uid[1] = 0x9a;
-    token.uid[2] = 0x74;
-    token.uid[3] = 0x6a;
-    token.uid[4] = 0x0b;
-    token.uid[5] = 0x40;
-    token.uid[6] = 0x80; // last uid byte 0x80
+    token->uid[0] = 0x04; // uid always 0x04
+    token->uid[1] = 0x9a;
+    token->uid[2] = 0x74;
+    token->uid[3] = 0x6a;
+    token->uid[4] = 0x0b;
+    token->uid[5] = 0x40;
+    token->uid[6] = 0x80; // last uid byte 0x80
 
     return token; // Return the created token
 }
 
-void ToyPadEmu_place(Token new_token) {
-    // Add the token to the emulator
-    new_token.index = emulator->token_count;
-    emulator->tokens[new_token.index] = new_token;
-    emulator->token_count++;
-}
+// void ToyPadEmu_place(Token* new_token) {
+//     // Add the token to the emulator
+//     new_token->index = emulator->token_count;
+//     emulator->tokens[new_token.index] = new_token;
+//     emulator->token_count++;
+// }
 
 // // Add a token to a pad
 // void ToyPadEmu_place(ToyPadEmu* emu, int pad, int index, unsigned char* uid) {
@@ -583,7 +582,7 @@ void ToyPadEmu_place(Token new_token) {
 // Remove a token
 bool ToyPadEmu_remove(ToyPadEmu* emu, int index) {
     for(int i = 0; i < emu->token_count; i++) {
-        if(emu->tokens[i].index == index) {
+        if(emu->tokens[i]->index == index) {
             // Shift tokens
             for(int j = i; j < emu->token_count - 1; j++) {
                 emu->tokens[j] = emu->tokens[j + 1];
@@ -829,14 +828,20 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         token = NULL;
 
+        // furi_delay_ms(100);
+
         // Find the token that matches the ind
-        for(int i = 0; i < emulator->token_count; i++) {
-            if(emulator->tokens[i].index == ind) {
-                token = &emulator->tokens[i];
+        for(int i = 0; i < 128; i++) {
+            if(emulator->tokens[i] != NULL) {
+                // Process the token
+                if(emulator->tokens[i]->index == ind) {
+                    // snprintf(debug_text, sizeof(debug_text), "Found token %d", emulator->tokens[i]->id); // why does this crash the application?
+                    token = emulator->tokens[i];
+                }
+            } else {
                 break;
             }
         }
-
         int start = page * 4;
 
         if(token) {
@@ -860,9 +865,15 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         // find the token with the index
         token = NULL;
-        for(int i = 0; i < emulator->token_count; i++) {
-            if(emulator->tokens[i].index == index) {
-                token = &emulator->tokens[i];
+        for(int i = 0; i < 128; i++) {
+            if(emulator->tokens[i] != NULL) {
+                // Process the token
+                if(emulator->tokens[i]->index == index) {
+                    // snprintf(debug_text, sizeof(debug_text), "Found token %d", emulator->tokens[i]->id); // why does this crash the application?
+                    token = emulator->tokens[i];
+                    sprintf(debug_text_ep_in, "Found token in MODEL");
+                }
+            } else {
                 break;
             }
         }
