@@ -29,7 +29,7 @@ typedef struct {
     bool back_pressed;
     bool connected;
     char* connection_status;
-    bool minifigure_submenu;
+    // bool minifigure_submenu;
 
     uint32_t selected_minifigure_index;
 
@@ -38,6 +38,10 @@ typedef struct {
     // setting indexes below
     bool show_debug_text_index;
     bool show_icons_index;
+
+    // Inner-screens / pseudo-screens
+    bool show_screen_minfig_vehicle;
+    bool screen_minfig_vehicle_minfig_box_selected;
 } LDToyPadSceneEmulateModel;
 
 void minifigures_submenu_callback(void* context, uint32_t index);

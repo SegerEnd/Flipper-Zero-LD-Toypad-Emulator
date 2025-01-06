@@ -30,9 +30,6 @@
 #define CMD_ACTIVE 0xE5
 #define CMD_LEDSQ  0xFF
 
-#define HID_EP_IN  0x81
-#define HID_EP_OUT 0x01
-
 #define HID_INTERVAL 1
 
 #define HID_VID_DEFAULT 0x0e6f // Logic3
@@ -562,7 +559,7 @@ bool ToyPadEmu_remove(int index, int selectedBox) {
     // generate the checksum
     buffer[13] = generate_checksum_for_command(buffer, 13);
 
-    usbd_ep_write(usb_dev, 0x81, buffer, sizeof(buffer));
+    usbd_ep_write(usb_dev, HID_EP_IN, buffer, sizeof(buffer));
 
     // Free the memory of the token
     emulator->tokens[index] = NULL;

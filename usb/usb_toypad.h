@@ -7,7 +7,9 @@
 extern "C" {
 #endif
 
-#define HID_EP_SZ 0x20
+#define HID_EP_SZ  0x20 // 32 bytes packet size
+#define HID_EP_IN  0x81
+#define HID_EP_OUT 0x01
 
 typedef struct {
     unsigned char index;
