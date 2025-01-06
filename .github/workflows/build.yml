@@ -28,7 +28,7 @@ jobs:
       - name: Upload app artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: release-build-${{ github.event.repository.name }}-${{ steps.build-app.outputs.suffix }}
+          name: release-build
           path: ./artifacts
 
   download-and-release:
@@ -38,7 +38,7 @@ jobs:
       - name: Download app artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release-build-*
+          name: release-build
           path: ./artifacts  # Directory where the artifact will be saved
 
       - name: List files in the artifact directory
