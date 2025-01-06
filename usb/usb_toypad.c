@@ -5,17 +5,279 @@
 #include "usb.h"
 #include "usb_hid.h"
 
-#define HID_EP_IN 0x81
-#define HID_EP_OUT 0x01
-#define HID_EP_SZ 0x20
+#include "../views/EmulateToyPad_scene.h"
+#include "../tea.h"
+#include "../burtle.h"
 
-#define HID_INTERVAL 2
+// Define all the possible commands
+#define CMD_WAKE   0xB0
+#define CMD_READ   0xD2
+#define CMD_MODEL  0xD4
+#define CMD_SEED   0xB1
+#define CMD_CHAL   0xB3
+#define CMD_COL    0xC0
+#define CMD_GETCOL 0xC1
+#define CMD_FADE   0xC2
+#define CMD_FLASH  0xC3
+#define CMD_FADRD  0xC4
+#define CMD_FADAL  0xC6
+#define CMD_FLSAL  0xC7
+#define CMD_COLAL  0xC8
+#define CMD_TGLST  0xD0
+#define CMD_WRITE  0xD3
+#define CMD_PWD    0xE1
+#define CMD_ACTIVE 0xE5
+#define CMD_LEDSQ  0xFF
+
+#define HID_EP_IN  0x81
+#define HID_EP_OUT 0x01
+
+#define HID_INTERVAL 1
 
 #define HID_VID_DEFAULT 0x0e6f // Logic3
 #define HID_PID_DEFAULT 0x0241
 
 #define USB_EP0_SIZE 64
 PLACE_IN_SECTION("MB_MEM2") static uint32_t ubuf[0x20];
+
+ToyPadEmu* emulator;
+// ToyPadEmu* get_emulator() {
+//     return emulator;
+// }
+
+int connected_status = 0;
+int get_connected_status() {
+    return connected_status;
+}
+void set_connected_status(int status) {
+    connected_status = status;
+}
+
+// create a string variablethat contains the text: nothing to debug yet
+char debug_text_ep_in[HID_EP_SZ * 4] = "nothing";
+
+// char debug_text_ep_out[] = "nothing to debug yet";
+char debug_text_ep_out[HID_EP_SZ] = "nothing";
+
+char debug_text[64] = " ";
+
+void set_debug_text(char* text) {
+    sprintf(debug_text, "%s", text);
+}
+
+void set_debug_text_ep_in(char* text) {
+    sprintf(debug_text_ep_in, "%s", text);
+}
+
+// a function that returns a pointer to the string
+char* get_debug_text_ep_in() {
+    return debug_text_ep_in;
+}
+char* get_debug_text_ep_out() {
+    return debug_text_ep_out;
+}
+char* get_debug_text() {
+    return debug_text;
+}
+
+// a function to convert an array of bytes to a string like 0x00, 0x01, 0x02, 0x03
+void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize) {
+    int currentLength = 0;
+
+    // clear previous pointers
+    memset(outputBuffer, 0, bufferSize);
+
+    for(int i = 0; i < size; i++) {
+        // Get the two nibbles (4-bit halves) of the current byte
+        unsigned char highNibble = (array[i] >> 4) & 0x0F; // High 4 bits
+        unsigned char lowNibble = array[i] & 0x0F; // Low 4 bits
+
+        // Convert nibbles to hex characters
+        char highChar = (highNibble < 10) ? ('0' + highNibble) : ('A' + highNibble - 10);
+        char lowChar = (lowNibble < 10) ? ('0' + lowNibble) : ('A' + lowNibble - 10);
+
+        // Append "0x", the hex characters, and a space to the buffer
+        if(currentLength + 4 <
+           bufferSize) { // Ensure enough space for "0x", two chars, and a space
+            outputBuffer[currentLength++] = '0';
+            outputBuffer[currentLength++] = 'x';
+            outputBuffer[currentLength++] = highChar;
+            outputBuffer[currentLength++] = lowChar;
+
+            // Add a space after each hex value, except the last one
+            if(i < size - 1 && currentLength < bufferSize) {
+                outputBuffer[currentLength++] = ' ';
+            }
+        } else {
+            break; // Stop if there isn't enough space
+        }
+    }
+
+    // Null-terminate the string
+    if(currentLength < bufferSize) {
+        outputBuffer[currentLength] = '\0';
+    }
+}
+
+// Function to parse a Frame into a Request
+void parse_request(Request* request, Frame* f) {
+    if(request == NULL || f == NULL) return;
+
+    request->frame = *f;
+    uint8_t* p = f->payload;
+
+    request->cmd = p[0];
+    request->cid = p[1];
+    memcpy(request->payload, p + 2, f->len - 2); // Copy payload, excluding cmd and cid
+}
+
+// Function to parse a Frame from a buffer
+void parse_frame(Frame* frame, unsigned char* buf, int len) {
+    UNUSED(len);
+    frame->type = buf[0];
+    frame->len = buf[1];
+    memcpy(frame->payload, buf + 2, frame->len);
+    frame->chksum = buf[frame->len + 2];
+}
+
+// Function to calculate checksum
+void calculate_checksum(uint8_t* buf, int length, int place) {
+    uint8_t checksum = 0;
+
+    if(place == -1) {
+        place = length;
+    }
+
+    // Calculate checksum (up to 'length')
+    for(int i = 0; i < length; i++) {
+        checksum = (checksum + buf[i]) % 256;
+    }
+
+    // Assign checksum to the last position
+    buf[place] = checksum;
+}
+
+// calculate checksum to int
+int calculate_checksum_int(uint8_t* buf, int length) {
+    uint8_t checksum = 0;
+
+    // Calculate checksum (up to 'length')
+    for(int i = 0; i < length; i++) {
+        checksum = (checksum + buf[i]) % 256;
+    }
+
+    return checksum;
+}
+
+// Function to build a Frame into a buffer
+int build_frame(Frame* frame, unsigned char* buf) {
+    buf[0] = frame->type;
+    buf[1] = frame->len;
+    memcpy(buf + 2, frame->payload, frame->len);
+    // buf[frame->len + 2] = calculate_checksum(buf, frame->len + 2);
+    calculate_checksum(buf, frame->len + 2, -1);
+    return frame->len + 3;
+}
+
+// Function to parse a Response from a Frame
+void parse_response(Response* response, Frame* frame) {
+    response->frame = *frame;
+    response->cid = frame->payload[0];
+    response->payload_len = frame->len - 1;
+    memcpy(response->payload, frame->payload + 1, response->payload_len);
+}
+
+// Function to build a Response into a Frame
+int build_response(Response* response, unsigned char* buf) {
+    response->frame.type = 0x55;
+    response->frame.len = response->payload_len + 1;
+    response->frame.payload[0] = response->cid;
+    memcpy(response->frame.payload + 1, response->payload, response->payload_len);
+    return build_frame(&response->frame, buf);
+}
+
+void Event_init(Event* event) {
+    // if(data && len > 0) {
+    //     Frame frame;
+    //     parse_frame(&frame, data, len);
+    //     event->pad = frame.payload[0];
+    //     event->index = frame.payload[2];
+    //     event->dir = frame.payload[3];
+    //     memcpy(event->uid, frame.payload + 4, 16);
+    //     event->frame = frame;
+    // } else {
+    //     event->pad = 0;
+    //     event->index = 0;
+    //     event->dir = 0;
+    //     memset(event->uid, 0, sizeof(event->uid));
+    //     memset(&event->frame, 0, sizeof(event->frame));
+    // }
+    event->pad = 0;
+    event->index = 0;
+    event->dir = 0;
+    memset(event->uid, 0, sizeof(event->uid));
+    memset(&event->frame, 0, sizeof(event->frame));
+}
+
+// // Function to build the event into a frame
+// int Event_build(Event* event, unsigned char* buf) {
+//     // fill the buffer with empty bytes
+//     memset(buf, 0, HID_EP_SZ);
+//     memset(event->frame.payload, 0, sizeof(event->frame.payload));
+
+//     // unsigned char b[11] = {0};
+//     // b[0] = event->pad;
+//     // b[1] = 0;
+//     // b[2] = event->index;
+//     // b[3] = event->dir;
+//     // memcpy(b + 4, event->uid, 7);
+//     // for(int i = 0; i < 6; i++) {
+//     //     b[i + 4] = event->uid[i];
+//     // }
+
+//     // Calculate the checksum on b
+//     // int checksum = calculate_checksum_int(b, sizeof(b) + 1);
+
+//     // Update the event's frame
+//     // event->frame.type = 0x56;
+//     // event->frame.len = sizeof(b);
+//     // Copy the event's payload into the frame
+//     // memcpy(event->frame.payload, b, sizeof(b));
+
+//     // event->frame.len = sizeof(event->frame.payload);
+//     event->frame.len = 11; // payload length
+
+//     // Build the frame and return the size of the frame
+//     // return build_frame(&event->frame, buf);
+
+//     buf[0] = event->frame.type;
+//     // buf[1] = event->frame.len;
+//     buf[1] = 11;
+//     buf[2] = event->pad;
+//     buf[3] = 0;
+//     buf[4] = event->index;
+//     // buf[5] = event->dir;
+//     buf[5] = 0;
+//     buf[6] = 0x04;
+//     buf[7] = event->uid[1];
+//     buf[8] = event->uid[2];
+//     buf[9] = event->uid[3];
+//     buf[10] = event->uid[4];
+//     buf[11] = event->uid[5];
+//     buf[12] = 0x80;
+//     // checksum here
+//     uint8_t checksum = 0;
+
+//     // Calculate checksum
+//     for(int i = 0; i < 11; i++) {
+//         checksum = (checksum + buf[i]) % 256;
+//     }
+//     buf[13] = checksum;
+
+//     // buf[event->frame.len + 2] = checksum;
+
+//     return event->frame.len + 2;
+// }
 
 /* String descriptors */
 enum UsbDevDescStr {
@@ -186,9 +448,132 @@ static void* hid_set_string_descr(char* str) {
     struct usb_string_descriptor* dev_str_desc = malloc(len * 2 + 2);
     dev_str_desc->bLength = len * 2 + 2;
     dev_str_desc->bDescriptorType = USB_DTYPE_STRING;
-    for(size_t i = 0; i < len; i++) dev_str_desc->wString[i] = str[i];
+    for(size_t i = 0; i < len; i++)
+        dev_str_desc->wString[i] = str[i];
 
     return dev_str_desc;
+}
+
+usbd_device* get_usb_device() {
+    return usb_dev;
+}
+
+Burtle* burtle; // Define the Burtle object
+
+// Generate random UID
+void ToyPadEmu_randomUID(unsigned char* uid) {
+    srand(furi_get_tick()); // Set the seed to random value
+    uid[0] = 0x04; // vendor id = NXP
+    for(int i = 1; i < 6; i++) { // Fill the middle 4 bytes
+        uid[i] = rand() % 256;
+    }
+    uid[6] = 0x80; // Set the last byte to 0x80
+}
+
+void ToyPadEmu_init(ToyPadEmu* emu) {
+    emu->token_count = 0;
+
+    // Set default TEA key
+    // uint8_t default_tea_key[16] = {
+    //     0x55,
+    //     0xFE,
+    //     0xF6,
+    //     0xB0,
+    //     0x62,
+    //     0xBF,
+    //     0x0B,
+    //     0x41,
+    //     0xC9,
+    //     0xB3,
+    //     0x7C,
+    //     0xB4,
+    //     0x97,
+    //     0x3E,
+    //     0x29,
+    //     0x7B};
+
+    // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
+}
+
+Token* createCharacter(int id) {
+    Token* token = malloc(sizeof(Token)); // Allocate memory for the token
+
+    memset(token->token, 0, sizeof(token->token));
+
+    srand(furi_get_tick());
+
+    token->id = id; // Set the ID
+    // token.uid = malloc(7); // Dynamically allocate memory for uid
+    // ToyPadEmu_randomUID(token.uid); // Generate a random UID
+    token->uid[0] = 0x04; // uid always 0x04
+    token->uid[1] = rand() % 256; // Random uid
+    token->uid[2] = rand() % 256; // Random uid
+    token->uid[3] = rand() % 256; // Random uid
+    token->uid[4] = rand() % 256; // Random uid
+    token->uid[5] = rand() % 256; // Random uid
+    token->uid[6] = 0x80; // last uid byte 0x80
+
+    return token; // Return the created token
+}
+
+// void ToyPadEmu_place(Token* new_token) {
+//     // Add the token to the emulator
+//     new_token->index = emulator->token_count;
+//     emulator->tokens[new_token.index] = new_token;
+//     emulator->token_count++;
+// }
+
+// Remove a token
+bool ToyPadEmu_remove(int index, int selectedBox) {
+    if(index < 0) return false;
+    if(emulator->tokens[index] == NULL) return false;
+
+    // Send to the USB device that the token has been removed
+
+    // get the token from the emulator
+
+    Token* character = emulator->tokens[index];
+    if(character == NULL) return false;
+
+    unsigned char buffer[32];
+
+    memset(buffer, 0, sizeof(buffer));
+
+    selectedBox_to_pad(character, selectedBox);
+
+    // set the data to the buffer
+    buffer[0] = 0x56; // magic number always 0x56
+    buffer[1] = 0x0b; // size always 0x0b (11)
+    buffer[2] = character->pad;
+    buffer[3] = 0x00; // always 0
+    buffer[4] = character->index;
+    buffer[5] = 0x01; // tag placed / removed (0x00 = placed, 0x01 = removed)
+    buffer[6] = character->uid[0]; // first uid always 0x04
+    buffer[7] = character->uid[1];
+    buffer[8] = character->uid[2];
+    buffer[9] = character->uid[3];
+    buffer[10] = character->uid[4];
+    buffer[11] = character->uid[5];
+    buffer[12] = character->uid[6]; // last uid byte always 0x80
+    // generate the checksum
+    buffer[13] = generate_checksum_for_command(buffer, 13);
+
+    usbd_ep_write(usb_dev, 0x81, buffer, sizeof(buffer));
+
+    // Free the memory of the token
+    emulator->tokens[index] = NULL;
+    free(character);
+
+    // free the token
+    free(emulator->tokens[index]);
+    emulator->token_count--; // Decrement the token count
+
+    // shift the tokens
+    for(int i = index; i < emulator->token_count - 1; i++) {
+        emulator->tokens[i] = emulator->tokens[i + 1];
+    }
+
+    return true;
 }
 
 static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
@@ -196,6 +581,10 @@ static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     FuriHalUsbHidConfig* cfg = (FuriHalUsbHidConfig*)ctx;
     if(hid_semaphore == NULL) hid_semaphore = furi_semaphore_alloc(1, 1);
     usb_dev = dev;
+
+    // if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
+    if(burtle == NULL) burtle = malloc(sizeof(Burtle));
+
     // hid_report.keyboard.report_id = ReportIdKeyboard;
     // hid_report.mouse.report_id = ReportIdMouse;
     // hid_report.consumer.report_id = ReportIdConsumer;
@@ -244,6 +633,9 @@ static void hid_deinit(usbd_device* dev) {
 
     free(usb_hid_ldtoypad.str_manuf_descr);
     free(usb_hid_ldtoypad.str_prod_descr);
+
+    // free(emulator);
+    free(burtle);
 }
 
 static void hid_on_wakeup(usbd_device* dev) {
@@ -267,97 +659,335 @@ static void hid_on_suspend(usbd_device* dev) {
     }
 }
 
-// create a string variablethat contains the text: nothing to debug yet
-char debug_text_ep_in[] = "nothing to debug yet";
-
-char debug_text_ep_out[] = "nothing to debug yet";
-
-static void hid_tx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
-    // UNUSED(dev);
-    // UNUSED(ep);
-    // if(event == usbd_evt_eptx) {
-    //     furi_semaphore_release(hid_semaphore);
-    // }
-    UNUSED(dev);
-    UNUSED(event);
+void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(ep);
-
-    uint16_t len = 32;
-    uint8_t data[len];
-    usbd_ep_read(dev, ep, data, len);
-
-    // check if endpoint is HID_EP_IN or HID_EP_OUT
-    if(ep == HID_EP_IN) {
-        // snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "tx ep: %ld", (long)event);
-        snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "tx ep: %ld", (long)data);
-    } else if(ep == HID_EP_OUT) {
-        // snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx ep: %ld", (long)event);
-        snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx ep: %ld", (long)data);
-    }
-
-    // snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx: %ld", (long)event);
-    // snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "tx endpoint: %ld", (long)ep);
-
-    // furi_semaphore_release(hid_semaphore);
-
-    // else if(boot_protocol == true) {
-    //     usbd_ep_read(usb_dev, ep, &led_state, sizeof(led_state));
-    // } else {
-    //     struct HidReportLED leds;
-    //     usbd_ep_read(usb_dev, ep, &leds, sizeof(leds));
-    //     led_state = leds.led_state;
-    // }
-}
-
-// a function that returns a pointer to the string
-char* get_debug_text_ep_in() {
-    return debug_text_ep_in;
-}
-char* get_debug_text_ep_out() {
-    return debug_text_ep_out;
-}
-
-static void hid_rx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
-    UNUSED(dev);
     UNUSED(event);
-    UNUSED(ep);
+    UNUSED(dev);
 
-    uint16_t len = 32;
-    uint8_t data[len];
-    usbd_ep_read(dev, ep, data, len);
-
-    // save data to debug_text append 'data: ' to the front of the string
-    // snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "rx data: %ld", (long)data);
-
-    if(ep == HID_EP_IN) {
-        snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "rx ep: %ld", (long)data);
-    } else if(ep == HID_EP_OUT) {
-        snprintf(debug_text_ep_out, sizeof(debug_text_ep_out), "rx ep: %ld", (long)data);
-    }
-    int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-                             0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    usbd_ep_write(dev, HID_EP_OUT, initPacket, sizeof(initPacket));
-
-    if(callback != NULL) {
-        // callback(HidRequest, cb_ctx);
-    }
+    // nothing to do here
 }
 
-static void hid_txrx_ep_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
-    // set debug_text_ep_in to the text "hello world"
-    // strcpy(debug_text_ep_in, "test 2 hello world");
+uint32_t readUInt32LE(const unsigned char* buffer, int offset) {
+    return (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) |
+           ((uint32_t)buffer[offset + 2] << 16) | ((uint32_t)buffer[offset + 3] << 24);
+}
 
-    // set the debug_text_ep_in to event variable value
-    // snprintf(debug_text_ep_in, sizeof(debug_text_ep_in), "txrx ev: %ld", (long)event);
+uint32_t readUInt32BE(const unsigned char* buffer, int offset) {
+    return ((uint32_t)buffer[offset] << 24) | ((uint32_t)buffer[offset + 1] << 16) |
+           ((uint32_t)buffer[offset + 2] << 8) | (uint32_t)buffer[offset + 3];
+}
 
-    if(event == usbd_evt_eptx) {
-        hid_tx_ep_callback(dev, event, ep);
-    } else if(event == usbd_evt_eprx) {
-        hid_rx_ep_callback(dev, event, ep);
-    } else {
-        hid_rx_ep_callback(dev, event, ep);
+// Function to write uint32_t to little-endian
+void writeUInt32LE(uint8_t* buffer, uint32_t value) {
+    buffer[0] = value & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+    buffer[2] = (value >> 16) & 0xFF;
+    buffer[3] = (value >> 24) & 0xFF;
+}
+
+// Function to write uint32_t to big-endian
+void writeUInt32BE(uint8_t* buffer, uint32_t value, int offset) {
+    buffer[offset] = (value >> 24) & 0xFF;
+    buffer[offset + 1] = (value >> 16) & 0xFF;
+    buffer[offset + 2] = (value >> 8) & 0xFF;
+    buffer[offset + 3] = value & 0xFF;
+}
+
+void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
+    UNUSED(ep);
+    UNUSED(event);
+
+    usb_dev = dev;
+
+    unsigned char req_buf[HID_EP_SZ] = {0};
+
+    // Read data from the OUT endpoint
+    int32_t len = usbd_ep_read(dev, HID_EP_OUT, req_buf, HID_EP_SZ);
+
+    // Make from the data a string and save it to the debug_text_ep_out string
+    sprintf(debug_text_ep_out, "%s", req_buf);
+
+    // char hexValues[HID_EP_SZ];
+    // hexArrayToString(req_buf, sizeof(hexValues), hexValues, HID_EP_SZ);
+    // sprintf(debug_text_ep_out, "%s", hexValues);
+
+    if(len <= 0) return;
+
+    Frame frame;
+    parse_frame(&frame, req_buf, len);
+
+    if(frame.len == 0) {
+        return;
     }
+
+    Request request;
+
+    memset(&request, 0, sizeof(Request));
+
+    // parse request
+    parse_request(&request, &frame);
+
+    // request.cmd = frame.payload[0];
+    // request.cid = frame.payload[1];
+    // request.payload_len = frame.len - 2;
+    // memcpy(request.payload, frame.payload + 2, request.payload_len);
+
+    Response response;
+    memset(&response, 0, sizeof(Response));
+
+    response.cid = request.cid;
+    response.payload_len = 0;
+
+    uint32_t conf;
+    Token* token;
+
+    switch(request.cmd) {
+    case CMD_WAKE:
+        // handle_cmd_wake(req + 1, res, &res_size);
+        sprintf(debug_text, "CMD_WAKE");
+
+        ToyPadEmu_init(emulator); // Initialize the emulator / setup tea key
+
+        uint8_t default_tea_key[16] = {
+            0x55,
+            0xFE,
+            0xF6,
+            0xB0,
+            0x62,
+            0xBF,
+            0x0B,
+            0x41,
+            0xC9,
+            0xB3,
+            0x7C,
+            0xB4,
+            0x97,
+            0x3E,
+            0x29,
+            0x7B};
+
+        memcpy(emulator->tea_key, default_tea_key, sizeof(emulator->tea_key));
+
+        // From: https://github.com/AlinaNova21/node-ld/blob/f54b177d2418432688673aa07c54466d2e6041af/src/lib/ToyPadEmu.js#L139
+        uint8_t wake_payload_2[13] = {
+            0x28, 0x63, 0x29, 0x20, 0x4C, 0x45, 0x47, 0x4F, 0x20, 0x32, 0x30, 0x31, 0x34};
+
+        memcpy(response.payload, wake_payload_2, sizeof(wake_payload_2));
+
+        response.payload_len = sizeof(wake_payload_2);
+
+        // usbd_ep_write(dev, HID_EP_IN, wake_payload_2, sizeof(wake_payload_2));
+
+        // I don't know why this is, but it seems to work. Found it in a log file of https://github.com/woodenphone/lego_dimensions_protocol/blob/master/logs/USB%20capture%20snippet.txt#L31
+        // unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x19, 0x01, 0x00, 0x2f, 0x02, 0x01, 0x02,
+        //                                          0x02, 0x04, 0x02, 0xf5, 0x00, 0x19, 0x8b, 0x54,
+        //                                          0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
+        //                                          0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
+
+        // usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
+
+        break;
+    case CMD_READ:
+        sprintf(debug_text, "CMD_READ");
+
+        int ind = request.payload[0];
+        int page = request.payload[1];
+
+        // create a new payload of 17 bytes
+        // unsigned char read_payload[17] = {0};
+        // UNUSED(read_payload);
+        response.payload_len = 17;
+        response.payload[0] = 0;
+
+        token = NULL;
+
+        // furi_delay_ms(100);
+
+        // Find the token that matches the ind
+        for(int i = 0; i < 128; i++) {
+            if(emulator->tokens[i] != NULL) {
+                // Process the token
+                if(emulator->tokens[i]->index == ind) {
+                    // snprintf(debug_text, sizeof(debug_text), "Found token %d", emulator->tokens[i]->id); // why does this crash the application?
+                    token = emulator->tokens[i];
+                }
+            } else {
+                break;
+            }
+        }
+        int start = page * 4;
+
+        if(token) {
+            memcpy(response.payload + 1, token->token + start, 16);
+        }
+
+        break;
+    case CMD_MODEL:
+        if(!strstr(debug_text, "CMD_MODEL")) {
+            snprintf(debug_text + strlen(debug_text), sizeof(debug_text), " CMD_MODEL");
+        }
+
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
+
+        uint8_t index = request.payload[0];
+        conf = readUInt32BE(request.payload, 4);
+
+        // create a buf with 8 bytes
+        unsigned char buf[8] = {0};
+        writeUInt32BE(buf, conf, 4);
+
+        // find the token with the index
+        token = NULL;
+        for(int i = 0; i < 128; i++) {
+            if(emulator->tokens[i] != NULL) {
+                // Process the token
+                if(emulator->tokens[i]->index == index) {
+                    token = emulator->tokens[i];
+                }
+            } else {
+                break;
+            }
+        }
+        memset(response.payload, 0, 9);
+
+        if(token) {
+            if(token->id) {
+                writeUInt32LE(buf, token->id);
+            } else {
+                response.payload[0] = 0xF9;
+            }
+        } else {
+            response.payload[0] = 0xF2;
+        }
+
+        // encrypt the buf with the TEA
+        tea_encrypt(buf, emulator->tea_key, buf);
+
+        // copy the buf to the response payload
+        memcpy(response.payload + 1, buf, 8);
+
+        response.payload_len = 9;
+        break;
+    case CMD_SEED:
+        sprintf(debug_text, "CMD_SEED");
+
+        // decrypt the request.payload with the TEA
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
+
+        uint32_t seed = readUInt32LE(request.payload, 0);
+
+        conf = readUInt32BE(request.payload, 4);
+
+        burtle_init(burtle, seed);
+
+        memset(response.payload, 0, 8); // Fill the payload with 0 with a length of 8
+        writeUInt32BE(response.payload, conf, 0); // Write the conf to the payload
+
+        // encrypt the request.payload with the TEA
+        tea_encrypt(response.payload, emulator->tea_key, response.payload);
+
+        response.payload_len = 8;
+
+        break;
+    case CMD_WRITE:
+        sprintf(debug_text, "CMD_WRITE");
+
+        break;
+    case CMD_CHAL:
+        sprintf(debug_text, "CMD_CHAL");
+
+        // decrypt the request.payload with the TEA
+        tea_decrypt(request.payload, emulator->tea_key, request.payload);
+
+        // get conf
+        conf = readUInt32BE(request.payload, 0);
+
+        // make a new buffer for the response of 8
+        memset(response.payload, 0, 8);
+
+        // get a rand from the burtle
+        uint32_t rand = burtle_rand(burtle);
+
+        // write the rand to the response payload as Int32LE
+        writeUInt32LE(response.payload, rand);
+
+        // write the conf to the response payload as Int32BE
+        writeUInt32BE(response.payload + 4, conf, 0);
+
+        // encrypt the response.payload with the TEA
+        tea_encrypt(response.payload, emulator->tea_key, response.payload);
+
+        response.payload_len = 8;
+
+        connected_status = 2; // connected / reconnected
+
+        break;
+    case CMD_COL:
+        sprintf(debug_text, "CMD_COL");
+        break;
+    case CMD_GETCOL:
+        sprintf(debug_text, "CMD_GETCOL");
+        break;
+    case CMD_FADE:
+        sprintf(debug_text, "CMD_FADE");
+        break;
+    case CMD_FLASH:
+        sprintf(debug_text, "CMD_FLASH");
+        break;
+    case CMD_FADRD:
+        sprintf(debug_text, "CMD_FADRD");
+        break;
+    case CMD_FADAL:
+        if(!strstr(debug_text, "CMD_FADAL")) {
+            snprintf(debug_text + strlen(debug_text), sizeof(debug_text), " CMD_FADAL");
+        }
+        break;
+    case CMD_FLSAL:
+        sprintf(debug_text, "CMD_FLSAL");
+        break;
+    case CMD_COLAL:
+        sprintf(debug_text, "CMD_COLAL");
+        break;
+    case CMD_TGLST:
+        sprintf(debug_text, "CMD_TGLST");
+        break;
+    case CMD_PWD:
+        sprintf(debug_text, "CMD_PWD");
+        break;
+    case CMD_ACTIVE:
+        sprintf(debug_text, "CMD_ACTIVE");
+        break;
+    case CMD_LEDSQ:
+        sprintf(debug_text, "CMD_LEDSQ");
+        break;
+    default:
+        sprintf(debug_text, "Not a valid command");
+        return;
+    }
+
+    // check if the response is empty
+    if(sizeof(response.payload) == 0) {
+        // sprintf(debug_text, "Empty payload_len");
+        return;
+    }
+    if(response.payload_len > HID_EP_SZ) {
+        sprintf(debug_text, "Payload too big");
+        return;
+    }
+
+    // Make the response
+    unsigned char res_buf[HID_EP_SZ];
+
+    build_response(&response, res_buf);
+    int res_len = build_frame(&response.frame, res_buf);
+
+    if(res_len <= 0) {
+        sprintf(debug_text, "res_len is 0");
+        return;
+    }
+
+    // Send the response
+    usbd_ep_write(dev, HID_EP_IN, res_buf, sizeof(res_buf));
 }
 
 /* Configure endpoints */
@@ -374,10 +1004,10 @@ static usbd_respond hid_ep_config(usbd_device* dev, uint8_t cfg) {
     case 1:
         /* configuring device */
         usbd_ep_config(dev, HID_EP_IN, USB_EPTYPE_INTERRUPT, HID_EP_SZ);
-        usbd_reg_endpoint(dev, HID_EP_IN, hid_txrx_ep_callback);
+        usbd_reg_endpoint(dev, HID_EP_IN, hid_in_callback);
         usbd_ep_config(dev, HID_EP_OUT, USB_EPTYPE_INTERRUPT, HID_EP_SZ);
-        usbd_reg_endpoint(dev, HID_EP_OUT, hid_txrx_ep_callback);
-        usbd_ep_write(dev, HID_EP_SZ, 0, 0);
+        usbd_reg_endpoint(dev, HID_EP_OUT, hid_out_callback);
+        // usbd_ep_write(dev, HID_EP_IN, 0, 0);
         // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
         //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
         //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -441,59 +1071,7 @@ static usbd_respond hid_control(usbd_device* dev, usbd_ctlreq* req, usbd_rqc_cal
     return usbd_fail;
 }
 
-// Function only to test right now this is not in the final code
-// int32_t hid_toypad_send() {
-//     // Check if the device is connected then write the packet
-//     if(hid_connected) {
-//         // int32_t result = usbd_ep_write(usb_dev, HID_EP_IN, &data, sizeof(data));
 //         int8_t data[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
 //                            0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
 //                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-//         int32_t result = usbd_ep_write(usb_dev, HID_EP_IN, data, sizeof(data));
-//         return result;
-//     }
-//     return -1;
-// }
-
-int32_t hid_toypad_read_IN() {
-    uint16_t len = 32;
-    uint8_t data[len]; // declare data as an array of the appropriate size
-    // Check if the device is connected then read the packet
-    // if(hid_connected) {
-    int32_t result = usbd_ep_read(usb_dev, HID_EP_IN, data, len);
-
-    // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-    //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-    //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
-
-    return result;
-    // }
-    // return 888;
-}
-
-// int32_t hid_toypad_read_OUT() {
-//     uint16_t len = 32;
-//     uint8_t data[len]; // declare data as an array of the appropriate size
-//     // Check if the device is connected then read the packet
-//     if(hid_connected) {
-//         int32_t result =
-//             usbd_ep_read(usb_dev, HID_EP_OUT, data, len); // pass data as the buffer to read into
-
-//         // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-//         //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-//         //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-//         // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
-
-//         return result;
-//     }
-//     return 999;
-// }
-
-// uint32_t hid_ldtoypad_usbinfo() {
-//     // if(hid_connected) {
-//     //     return usbd_getinfo(usb_dev);
-//     // }
-//     // return 888;
-//     return usbd_getinfo(usb_dev);
-// }
+//         int32_t length = usbd_ep_write(usb_dev, HID_EP_IN, data, sizeof(data));
