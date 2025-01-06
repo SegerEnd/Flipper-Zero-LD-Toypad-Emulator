@@ -1,18 +1,12 @@
 name: "FAP: Build for multiple SDK sources"
-# This will build your app for dev and release channels on GitHub. 
-# It will also build your app every day to make sure it's up to date with the latest SDK changes.
-# See https://github.com/marketplace/actions/build-flipper-application-package-fap for more information
 
 on:
   push:
-    ## put your main branch name under "braches"
-    branches: 
-      - master 
+    branches:
+      - master
       - main
   pull_request:
-  #schedule: 
-    # do a build every day
-    #- cron: "1 1 * * *"
+  workflow_dispatch:
 
 jobs:
   ufbt-build:
@@ -20,11 +14,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: dev channel
-            sdk-channel: dev
           - name: release channel
             sdk-channel: release
-          # You can add unofficial channels here. See ufbt action docs for more info.
     name: 'ufbt: Build for ${{ matrix.name }}'
     steps:
       - name: Checkout
@@ -37,6 +28,53 @@ jobs:
       - name: Upload app artifacts
         uses: actions/upload-artifact@v3
         with:
-          # See ufbt action docs for other output variables
-          name: ${{ github.event.repository.name }}-${{ steps.build-app.outputs.suffix }}
-          path: ${{ steps.build-app.outputs.fap-artifacts }}
+          name: release-build-${{ github.event.repository.name }}-${{ steps.build-app.outputs.suffix }}
+          path: ./artifacts
+
+  download-and-release:
+    needs: ufbt-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download app artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-build-*
+          path: ./artifacts  # Directory where the artifact will be saved
+
+      - name: List files in the artifact directory
+        run: |
+          echo "Listing the files in the ./artifacts directory:"
+          ls -lh ./artifacts  # List files in the downloaded directory to find the actual file name
+
+      - name: Unzip artifact
+        run: |
+          # Dynamically find the actual tarball file and unzip
+          artifact_file=$(ls ./artifacts/*.tar.gz)  # Assuming the artifact is a .tar.gz file
+          echo "Unzipping the file: $artifact_file"
+          mkdir -p ./unzipped
+          tar -xvf $artifact_file -C ./unzipped  # Unzip the file
+
+      - name: Create a draft release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: 'v1.0.0'  # You can change this to a dynamic version if needed
+          release_name: 'Release v1.0.0'
+          draft: true
+          prerelease: false
+          body: |
+            ### Release
+            This is an automated release of the Lego Dimensions ToyPad Emulator app for the Flipper Zero. 
+            - This release includes the official flipper zero release channel build of the app 
+
+            ### Release Notes
+            Place release notes here.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release assets
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: ./unzipped/*  # Path to the unzipped files
+          tag: 'v1.0.0'  # Make sure the tag matches the one used in create-release
+
