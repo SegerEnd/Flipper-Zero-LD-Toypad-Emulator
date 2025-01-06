@@ -7,7 +7,8 @@ on:
   push:
     ## put your main branch name under "braches"
     branches: 
-      - master 
+      - master
+      - main
   pull_request:
   workflow_dispatch:
   #schedule: 
