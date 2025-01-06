@@ -11,7 +11,7 @@ void draw_minifigure_vehicle_screen(Canvas* canvas, bool minfig_box_selected) {
 
     canvas_draw_str(canvas, 10, 14, "Select a type to place");
 
-    elements_button_left(canvas, "Back");
+    // elements_button_left(canvas, "Back");
 
     if(minfig_box_selected) {
         canvas_draw_str(canvas, 40, 57, "Minifigure");

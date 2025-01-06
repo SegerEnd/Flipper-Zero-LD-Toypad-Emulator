@@ -59,23 +59,23 @@ static void ldtoypad_submenu_callback(void* context, uint32_t index) {
     }
 }
 
+static bool setting_bool_values[] = {false, true};
+static char* setting_no_yes[] = {"No", "Yes"};
+
 /**
  * First setting is the show debug text setting. This setting has 2 options: yes or no. Default is no.
 */
-static const char* setting_show_debug_text_config_label = "Show Debug text";
-static bool setting_show_debug_text_values[] = {false, true};
-static char* setting_show_debug_text_names[] = {"No", "Yes"};
+static const char* setting_show_debug_text_config_label = "Show Debug texts";
 static void ldtoypad_setting_setting_show_debug_text_index_change(VariableItem* item) {
     LDToyPadApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
-    variable_item_set_current_value_text(item, setting_show_debug_text_names[index]);
+    variable_item_set_current_value_text(item, setting_no_yes[index]);
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
     model->show_debug_text_index = index;
 }
 
 static const char* setting_show_icons_names_config_label = "Show letter or icon";
-static bool setting_show_icons_names_values[] = {true, false};
 static char* setting_show_icons_names_names[] = {"Letter", "Icon"};
 
 static void ldtoypad_setting_setting_show_icons_names_index_change(VariableItem* item) {
@@ -85,6 +85,15 @@ static void ldtoypad_setting_setting_show_icons_names_index_change(VariableItem*
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
     model->show_icons_index = index;
+}
+
+static void ldtoypad_setting_minifig_only_mode_change(VariableItem* item) {
+    LDToyPadApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    variable_item_set_current_value_text(item, setting_no_yes[index]);
+    LDToyPadSceneEmulateModel* model =
+        view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
+    model->minifig_only_mode = index;
 }
 
 static uint32_t minifigures_submenu_previous_callback(void* context) {
@@ -133,27 +142,36 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     VariableItem* item = variable_item_list_add(
         app->variable_item_list_config,
         setting_show_debug_text_config_label,
-        COUNT_OF(setting_show_debug_text_values),
+        COUNT_OF(setting_bool_values),
         ldtoypad_setting_setting_show_debug_text_index_change,
         app);
-
     bool setting_show_debug_text_index = false;
     variable_item_set_current_value_index(item, setting_show_debug_text_index);
-    variable_item_set_current_value_text(
-        item, setting_show_debug_text_names[setting_show_debug_text_index]);
+    variable_item_set_current_value_text(item, setting_no_yes[setting_show_debug_text_index]);
 
     // setting 2 show icons or first letter of minifig name
     item = variable_item_list_add(
         app->variable_item_list_config,
         setting_show_icons_names_config_label,
-        COUNT_OF(setting_show_icons_names_values),
+        COUNT_OF(setting_bool_values),
         ldtoypad_setting_setting_show_icons_names_index_change,
         app);
-
     bool setting_show_icons_names_index = false;
     variable_item_set_current_value_index(item, setting_show_icons_names_index);
     variable_item_set_current_value_text(
         item, setting_show_icons_names_names[setting_show_icons_names_index]);
+
+    // setting 3 skip vehicle selection
+    item = variable_item_list_add(
+        app->variable_item_list_config,
+        "Skip vehicle selection / Only minifig mode",
+        COUNT_OF(setting_bool_values),
+        ldtoypad_setting_minifig_only_mode_change,
+        app);
+    bool setting_minifig_only_mode =
+        true; // currently true because, vehicles aren't implemented yet. Little bit annoying to go through the double selection currently.
+    variable_item_set_current_value_index(item, setting_minifig_only_mode);
+    variable_item_set_current_value_text(item, setting_no_yes[setting_minifig_only_mode]);
 
     view_set_previous_callback(
         variable_item_list_get_view(app->variable_item_list_config),
@@ -170,6 +188,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
 
     model->show_debug_text_index = setting_show_debug_text_index;
     model->show_icons_index = setting_show_icons_names_index;
+    model->minifig_only_mode = setting_minifig_only_mode;
 
     // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);
     view_dispatcher_add_view(
@@ -221,9 +240,9 @@ static LDToyPadApp* ldtoypad_app_alloc() {
  * @param      app  The ldtoypad application object.
 */
 static void ldtoypad_app_free(LDToyPadApp* app) {
-    view_dispatcher_remove_view(app->view_dispatcher, ViewTextInput);
-    text_input_free(app->text_input);
-    free(app->temp_buffer);
+    // view_dispatcher_remove_view(app->view_dispatcher, ViewTextInput);
+    // text_input_free(app->text_input); // we doesnt have a text input view anymore
+    // free(app->temp_buffer); // same as this
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewAbout);
     widget_free(app->widget_about);

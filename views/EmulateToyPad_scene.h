@@ -38,6 +38,7 @@ typedef struct {
     // setting indexes below
     bool show_debug_text_index;
     bool show_icons_index;
+    bool minifig_only_mode;
 
     // Inner-screens / pseudo-screens
     bool show_screen_minfig_vehicle;
