@@ -568,8 +568,8 @@ bool ToyPadEmu_remove(int index, int selectedBox) {
     free(emulator->tokens[index]);
     emulator->token_count--; // Decrement the token count
 
-    // shift the tokens
-    for(int i = index; i < emulator->token_count - 1; i++) {
+    // shift the tokens relative to the removed token and pads order
+    for(int i = index; i < emulator->token_count; i++) {
         emulator->tokens[i] = emulator->tokens[i + 1];
     }
 
@@ -786,6 +786,8 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         // usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
 
+        connected_status = 2; // connected / reconnected
+
         break;
     case CMD_READ:
         sprintf(debug_text, "CMD_READ");
@@ -918,8 +920,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         tea_encrypt(response.payload, emulator->tea_key, response.payload);
 
         response.payload_len = 8;
-
-        connected_status = 2; // connected / reconnected
 
         break;
     case CMD_COL:

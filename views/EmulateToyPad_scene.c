@@ -17,6 +17,8 @@
 
 LDToyPadApp* app;
 
+LDToyPadSceneEmulate* toypadscene_instance;
+
 FuriHalUsbInterface* usb_mode_prev = NULL;
 
 // Selection box icon
@@ -244,6 +246,11 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         // Give dolphin some xp for connecting the toypad
         dolphin_deed(DolphinDeedPluginStart);
+
+        if(toypadscene_instance->timer != NULL) {
+            furi_timer_stop(toypadscene_instance->timer);
+            furi_timer_start(toypadscene_instance->timer, furi_ms_to_ticks(5000));
+        }
     } else if(model->connected) {
         model->connection_status = "Connected";
     } else if(model->usbDevice == NULL) {
@@ -366,7 +373,7 @@ void ldtoypad_scene_emulate_view_game_timer_callback(void* context) {
 }
 
 void ldtoypad_scene_emulate_enter_callback(void* context) {
-    uint32_t period = furi_ms_to_ticks(150);
+    uint32_t period = furi_ms_to_ticks(200); // 5 seconds
     LDToyPadSceneEmulate* app = (LDToyPadSceneEmulate*)context;
     furi_assert(app->timer == NULL);
     app->timer = furi_timer_alloc(
@@ -411,6 +418,8 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
     instance->view = view_alloc();
 
+    toypadscene_instance = instance;
+
     // ldtoypad_view_dispatcher = view_dispatcher;
 
     usb_mode_prev = furi_hal_usb_get_config();
@@ -423,23 +432,13 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     // view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_callback);
     view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_render_callback);
     view_set_input_callback(instance->view, ldtoypad_scene_emulate_input_callback);
-    // view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
-    // view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
+
     view_set_previous_callback(instance->view, ldtoypad_scene_emulate_navigation_submenu_callback);
 
     view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
-
     view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
 
     view_set_custom_callback(instance->view, ldtoypad_scene_emulate_custom_event_callback);
-
-    // Allocate the submenu
-    // selectionMenu = submenu_alloc();
-    // view_set_previous_callback(submenu_get_view(selectionMenu), selectionMenu_prev_callback);
-    // view_dispatcher_add_view(
-    //     ldtoypad_view_dispatcher, LDToyPadView_SelectionMenu, submenu_get_view(selectionMenu));
-
-    // Items for the submenu as characters and vehicles
 
     return instance;
 }
@@ -473,13 +472,6 @@ View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* instance) {
 
 void minifigures_submenu_callback(void* context, uint32_t index) {
     LDToyPadApp* app = (LDToyPadApp*)context;
-
-    // print index of selected minifigure as debug text
-    // char debug_text[10];
-    // // convert the long unsigned int to a string
-    // snprintf(debug_text, 10, "%ld", index);
-    // // set the debug text
-    // set_debug_text(debug_text);
 
     // set current view to minifigure number to the selected index
     with_view_model(
