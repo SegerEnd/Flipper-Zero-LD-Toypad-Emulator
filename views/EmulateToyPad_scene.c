@@ -252,7 +252,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
             furi_timer_start(toypadscene_instance->timer, furi_ms_to_ticks(5000));
         }
     } else if(model->connected) {
-        model->connection_status = "Connected";
+        model->connection_status = "USB Connected";
     } else if(model->usbDevice == NULL) {
         model->connection_status = "USB not yet connected";
     } else if(!model->connected) {
@@ -325,8 +325,24 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // when the box is filled, draw the minifigure icon
     for(int i = 0; i < numBoxes; i++) {
         if(boxInfo[i].isFilled) {
-            // Draw the minifigure icon
-            canvas_draw_icon(canvas, boxInfo[i].x + 3, boxInfo[i].y + 3, &I_head);
+            Token* character = emulator->tokens[boxInfo[i].index];
+            if(model->show_icons_index) {
+                // Draw the minifigure icon
+                canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_head);
+            } else {
+                // Draw the first letter of the minifigure name
+
+                // get the first letter of the minifigure name
+                char letter[1];
+                letter[0] = character->name[0];
+
+                elements_multiline_text(canvas, boxInfo[i].x + 6, boxInfo[i].y + 12, letter);
+            }
+
+            // Set the connection status text to the currently connected minifigure name
+            if(selectedBox == i) {
+                model->connection_status = character->name;
+            }
         }
     }
 

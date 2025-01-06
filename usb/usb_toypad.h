@@ -15,6 +15,7 @@ typedef struct {
     unsigned int pad;
     unsigned char uid[7];
     unsigned char token[180];
+    char name[16];
 } Token;
 
 typedef struct {

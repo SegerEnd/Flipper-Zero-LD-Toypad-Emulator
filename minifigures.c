@@ -1,5 +1,8 @@
 #include "minifigures.h"
 
+#ifndef MINIFIGS
+#define MINIFIGS
+
 Minifigure minifigures[] = {
     {1, "Batman"},
     {2, "Gandalf"},
@@ -79,3 +82,25 @@ Minifigure minifigures[] = {
     {76, "Buttercup"},
     {77, "Starfire"},
 };
+
+#endif
+
+#include "furi.h"
+
+const char* get_minifigure_name(int id) {
+    for(int i = 0; minifigures[i].name != NULL; i++) {
+        if(minifigures[i].id == id) {
+            return minifigures[i].name;
+        }
+    }
+    return "?";
+}
+
+// int get_minifigure_id(const char* name) {
+//     for(int i = 0; minifigures[i].name != NULL; i++) {
+//         if(strcmp(minifigures[i].name, name) == 0) {
+//             return minifigures[i].id;
+//         }
+//     }
+//     return -1;
+// }

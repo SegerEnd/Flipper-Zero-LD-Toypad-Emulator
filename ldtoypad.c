@@ -63,7 +63,7 @@ static void ldtoypad_submenu_callback(void* context, uint32_t index) {
  * First setting is the show debug text setting. This setting has 2 options: yes or no. Default is no.
 */
 static const char* setting_show_debug_text_config_label = "Show Debug text";
-static uint8_t setting_show_debug_text_values[] = {false, true};
+static bool setting_show_debug_text_values[] = {false, true};
 static char* setting_show_debug_text_names[] = {"No", "Yes"};
 static void ldtoypad_setting_setting_show_debug_text_index_change(VariableItem* item) {
     LDToyPadApp* app = variable_item_get_context(item);
@@ -72,6 +72,19 @@ static void ldtoypad_setting_setting_show_debug_text_index_change(VariableItem* 
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
     model->show_debug_text_index = index;
+}
+
+static const char* setting_show_icons_names_config_label = "Show letter or icon";
+static bool setting_show_icons_names_values[] = {true, false};
+static char* setting_show_icons_names_names[] = {"Letter", "Icon"};
+
+static void ldtoypad_setting_setting_show_icons_names_index_change(VariableItem* item) {
+    LDToyPadApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    variable_item_set_current_value_text(item, setting_show_icons_names_names[index]);
+    LDToyPadSceneEmulateModel* model =
+        view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
+    model->show_icons_index = index;
 }
 
 static uint32_t minifigures_submenu_previous_callback(void* context) {
@@ -109,11 +122,11 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     view_dispatcher_add_view(app->view_dispatcher, ViewSubmenu, submenu_get_view(app->submenu));
     view_dispatcher_switch_to_view(app->view_dispatcher, ViewSubmenu);
 
-    app->text_input = text_input_alloc();
-    view_dispatcher_add_view(
-        app->view_dispatcher, ViewTextInput, text_input_get_view(app->text_input));
-    app->temp_buffer_size = 32;
-    app->temp_buffer = (char*)malloc(app->temp_buffer_size);
+    // app->text_input = text_input_alloc();
+    // view_dispatcher_add_view(
+    //     app->view_dispatcher, ViewTextInput, text_input_get_view(app->text_input));
+    // app->temp_buffer_size = 32;
+    // app->temp_buffer = (char*)malloc(app->temp_buffer_size);
 
     app->variable_item_list_config = variable_item_list_alloc();
     variable_item_list_reset(app->variable_item_list_config);
@@ -124,10 +137,23 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         ldtoypad_setting_setting_show_debug_text_index_change,
         app);
 
-    bool setting_show_debug_text_index = 0;
+    bool setting_show_debug_text_index = false;
     variable_item_set_current_value_index(item, setting_show_debug_text_index);
     variable_item_set_current_value_text(
         item, setting_show_debug_text_names[setting_show_debug_text_index]);
+
+    // setting 2 show icons or first letter of minifig name
+    item = variable_item_list_add(
+        app->variable_item_list_config,
+        setting_show_icons_names_config_label,
+        COUNT_OF(setting_show_icons_names_values),
+        ldtoypad_setting_setting_show_icons_names_index_change,
+        app);
+
+    bool setting_show_icons_names_index = false;
+    variable_item_set_current_value_index(item, setting_show_icons_names_index);
+    variable_item_set_current_value_text(
+        item, setting_show_icons_names_names[setting_show_icons_names_index]);
 
     view_set_previous_callback(
         variable_item_list_get_view(app->variable_item_list_config),
@@ -139,19 +165,12 @@ static LDToyPadApp* ldtoypad_app_alloc() {
 
     app->view_scene_emulate = ldtoypad_scene_emulate_alloc(app);
 
-    // This is allready happening in ldtoypad_scene_emulate_alloc
-
-    // view_set_draw_callback(app->view_scene_emulate->view, ldtoypad_view_game_draw_callback);
-    // view_set_input_callback(app->view_scene_emulate->view, ldtoypad_view_game_input_callback);
-    // view_set_previous_callback(app->view_scene_emulate->view, ldtoypad_navigation_submenu_callback);
-    // view_set_context(app->view_scene_emulate->view, app);
-    // view_set_custom_callback(app->view_game, ldtoypad_view_game_custom_event_callback);
-    // view_allocate_model(app->view_game, ViewModelTypeLockFree, sizeof(AppGameModel));
-
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
 
     model->show_debug_text_index = setting_show_debug_text_index;
+    model->show_icons_index = setting_show_icons_names_index;
+
     // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);
     view_dispatcher_add_view(
         app->view_dispatcher,

@@ -8,6 +8,7 @@
 #include "../views/EmulateToyPad_scene.h"
 #include "../tea.h"
 #include "../burtle.h"
+#include "../minifigures.h"
 
 // Define all the possible commands
 #define CMD_WAKE   0xB0
@@ -512,6 +513,9 @@ Token* createCharacter(int id) {
     token->uid[4] = rand() % 256; // Random uid
     token->uid[5] = rand() % 256; // Random uid
     token->uid[6] = 0x80; // last uid byte 0x80
+
+    // convert the name to a string
+    snprintf(token->name, sizeof(token->name), "%s", get_minifigure_name(id));
 
     return token; // Return the created token
 }

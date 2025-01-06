@@ -13,6 +13,20 @@ typedef struct {
 
 extern Minifigure minifigures[];
 
+/**
+ * @brief      Get the character name by its id
+ * @param      id    The id of the character
+ * @return     The character name
+*/
+const char* get_minifigure_name(int id);
+
+/**
+ * @brief      Get the character id by its name
+ * @param      name  The name of the character
+ * @return     The character id
+*/
+// int get_minifigure_id(const char* name);
+
 #ifdef __cplusplus
 }
 #endif
