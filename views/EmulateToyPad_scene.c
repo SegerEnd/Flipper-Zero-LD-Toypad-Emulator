@@ -343,6 +343,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         int id = (int)model->selected_vehicle_index;
         model->selected_vehicle_index = 0;
 
+        set_debug_text("Render vehicle");
+
         unsigned char buffer[32];
 
         memset(buffer, 0, sizeof(buffer));
@@ -353,7 +355,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         uint32_t upgrades[2] = {0xEFFFFFFF, 0xEFFFFFFF};
 
-        Token* vehicle = createVehicle(1006, upgrades);
+        Token* vehicle = createVehicle(1030, upgrades);
 
         boxInfo[selectedBox].isFilled = true;
 
@@ -574,7 +576,7 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     free(ldtoypad_emulate_view);
 
     // free all the tokens ( needs a better solution later )
-    for(int i = 0; i < 128; i++) {
+    for(int i = 0; i < 8; i++) {
         if(emulator->tokens[i] != NULL) {
             free(emulator->tokens[i]);
         }
@@ -595,6 +597,7 @@ void minifigures_submenu_callback(void* context, uint32_t index) {
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
         {
+            model->selected_vehicle_index = 0;
             if(model->connected) {
                 model->selected_minifigure_index = index;
             }
@@ -613,6 +616,7 @@ void vehicles_submenu_callback(void* context, uint32_t index) {
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
         {
+            model->selected_minifigure_index = 0;
             if(model->connected) {
                 model->selected_vehicle_index = index;
             }

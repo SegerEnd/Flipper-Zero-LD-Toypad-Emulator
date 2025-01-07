@@ -441,7 +441,7 @@ int get_token_count_of_specific_id(int id) {
     // Get the number of tokens with the same ID
     int count = 0;
 
-    for(int i = 0; i < 128; i++) {
+    for(int i = 0; i < 8; i++) {
         if(emulator->tokens[i] != NULL) {
             if(emulator->tokens[i]->id == id) {
                 count++;
@@ -489,18 +489,24 @@ Token* createCharacter(int id) {
 Token* createVehicle(int id, uint32_t upgrades[2]) {
     Token* token = malloc(sizeof(Token)); // Allocate memory for the token
 
+    if(id < 1000) {
+        id = 1000;
+    }
+
+    upgrades = upgrades ? upgrades : (uint32_t[2]){0, 0};
+
     memset(token->token, 0, sizeof(token->token));
 
-    token->id = id; // Set the ID
+    // token->id = id; // Set the ID
 
     create_uid(token, id); // Create the UID
 
     // Write upgrades and id into the token array
-    memcpy(token->token + (0x23 * 4), &upgrades[0], sizeof(uint32_t)); // Upgrade[0]
-    memcpy(token->token + (0x24 * 4), &id, sizeof(uint16_t)); // ID
-    memcpy(token->token + (0x25 * 4), &upgrades[1], sizeof(uint32_t)); // Upgrade[1]
-    uint16_t flag = 1;
-    memcpy(token->token + (0x26 * 4), &flag, sizeof(uint16_t)); // Flag (1)
+    memcpy(&token->token[0x23 * 4], &upgrades[0], sizeof(upgrades[0]));
+    memcpy(&token->token[0x24 * 4], &id, sizeof(uint16_t)); // 2 bytes for ID
+    memcpy(&token->token[0x25 * 4], &upgrades[1], sizeof(upgrades[1]));
+    uint16_t value = 1;
+    memcpy(&token->token[0x26 * 4], &value, sizeof(value));
 
     // convert the name to a string
     snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
@@ -753,37 +759,40 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         connected_status = 2; // connected / reconnected
 
         break;
-    case CMD_READ:
+    case CMD_READ: // Seems to be only executed one time per placed token (minifig / vehicle) when the game has begun, otherwise it will skip directly to CMD_MODEL
         sprintf(debug_text, "CMD_READ");
 
         int ind = request.payload[0];
         int page = request.payload[1];
 
-        // create a new payload of 17 bytes
-        // unsigned char read_payload[17] = {0};
-        // UNUSED(read_payload);
         response.payload_len = 17;
+
+        memset(response.payload, 0, sizeof(response.payload));
+
         response.payload[0] = 0;
 
         token = NULL;
 
         // furi_delay_ms(100);
 
+        sprintf(debug_text_ep_in, "Search token?");
+
         // Find the token that matches the ind
-        for(int i = 0; i < 128; i++) {
+        for(int i = 0; i < 8; i++) {
             if(emulator->tokens[i] != NULL) {
                 // Process the token
                 if(emulator->tokens[i]->index == ind) {
                     // snprintf(debug_text, sizeof(debug_text), "Found token %d", emulator->tokens[i]->id); // why does this crash the application?
                     token = emulator->tokens[i];
+                    sprintf(debug_text_ep_in, "Loop a token?");
+                    break;
                 }
-            } else {
-                break;
             }
         }
         int start = page * 4;
 
         if(token) {
+            sprintf(debug_text_ep_in, "Is a token");
             memcpy(response.payload + 1, token->token + start, 16);
         }
 
@@ -804,23 +813,24 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         // find the token with the index
         token = NULL;
-        for(int i = 0; i < 128; i++) {
+        for(int i = 0; i < 8; i++) {
             if(emulator->tokens[i] != NULL) {
                 // Process the token
                 if(emulator->tokens[i]->index == index) {
                     token = emulator->tokens[i];
+                    break;
                 }
-            } else {
-                break;
             }
         }
-        memset(response.payload, 0, 9);
+        memset(response.payload, 0, sizeof(response.payload));
 
         if(token) {
             if(token->id) {
                 writeUInt32LE(buf, token->id);
+                sprintf(debug_text_ep_in, "Found a model ID");
             } else {
                 response.payload[0] = 0xF9;
+                sprintf(debug_text_ep_in, "Found a model token");
             }
         } else {
             response.payload[0] = 0xF2;

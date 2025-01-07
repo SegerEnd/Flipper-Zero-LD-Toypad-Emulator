@@ -21,7 +21,7 @@ typedef struct {
 } Token;
 
 typedef struct {
-    Token* tokens[128];
+    Token* tokens[8];
     int token_count;
     uint8_t tea_key[16];
 } ToyPadEmu;

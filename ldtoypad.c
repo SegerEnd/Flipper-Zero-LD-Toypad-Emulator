@@ -146,7 +146,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         COUNT_OF(setting_bool_values),
         ldtoypad_setting_setting_show_debug_text_index_change,
         app);
-    bool setting_show_debug_text_index = false;
+    bool setting_show_debug_text_index = true;
     variable_item_set_current_value_index(item, setting_show_debug_text_index);
     variable_item_set_current_value_text(item, setting_no_yes[setting_show_debug_text_index]);
 
