@@ -106,6 +106,7 @@ ViewDispatcher* view_dispatcher;
 ViewDispatcher* get_view_dispatcher() {
     return view_dispatcher;
 }
+
 /**
  * @brief      Allocate the ldtoypad application. Set up the views and resources.
  * @details    This function allocates the ldtoypad application resources.
@@ -212,7 +213,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     // create a minifigure selection screen
     app->submenu_minifigure_selection = submenu_alloc();
     // get the minifigures from minifigures.h
-    for(int i = 0; minifigures[i].name != NULL; i++) {
+    for(int i = 0; i < minifigures_count; i++) {
         submenu_add_item(
             app->submenu_minifigure_selection,
             minifigures[i].name,
@@ -230,6 +231,27 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         submenu_get_view(app->submenu_minifigure_selection));
 
     submenu_set_header(app->submenu_minifigure_selection, "Select minifigure");
+
+    // create a vehicle selection screen
+    app->submenu_vehicle_selection = submenu_alloc();
+    // get the vehicles from minifigures.h
+    for(int i = 0; i < vehicles_count; i++) {
+        submenu_add_item(
+            app->submenu_vehicle_selection,
+            vehicles[i].name,
+            vehicles[i].id,
+            vehicles_submenu_callback,
+            app);
+    }
+    view_set_previous_callback(
+        submenu_get_view(app->submenu_vehicle_selection), minifigures_submenu_previous_callback);
+
+    view_dispatcher_add_view(
+        app->view_dispatcher,
+        ViewVehicleSelection,
+        submenu_get_view(app->submenu_vehicle_selection));
+
+    submenu_set_header(app->submenu_vehicle_selection, "Select vehicle");
 
     return app;
 }
@@ -259,8 +281,13 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, ViewSubmenu);
     submenu_free(app->submenu);
 
+    submenu_reset(app->submenu_minifigure_selection);
     view_dispatcher_remove_view(app->view_dispatcher, ViewMinifigureSelection);
     submenu_free(app->submenu_minifigure_selection);
+
+    submenu_reset(app->submenu_vehicle_selection);
+    view_dispatcher_remove_view(app->view_dispatcher, ViewVehicleSelection);
+    submenu_free(app->submenu_vehicle_selection);
 
     // view_dispatcher_free(app->view_dispatcher); // this is causing a crash
     furi_record_close(RECORD_GUI);

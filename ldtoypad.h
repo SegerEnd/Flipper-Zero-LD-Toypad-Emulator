@@ -44,7 +44,7 @@ typedef struct {
     // uint32_t temp_buffer_size; // Size of temporary buffer
 
     Submenu* submenu_minifigure_selection; // The minifigure selection screen
-
+    Submenu* submenu_vehicle_selection; // The vehicle selection screen
 } LDToyPadApp;
 
 // Each view is a screen we show the user.
@@ -55,6 +55,7 @@ typedef enum {
     ViewEmulate, // The main screen
     ViewAbout, // The about screen with directions, link to social channel, etc.
     ViewMinifigureSelection, // The minifigure selection screen
+    ViewVehicleSelection, // The vehicle selection screen
 } Views;
 
 ViewDispatcher* get_view_dispatcher();

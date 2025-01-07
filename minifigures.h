@@ -11,6 +11,8 @@ typedef struct {
     // const char* abilities;
 } Minifigure;
 
+extern Minifigure minifigures[];
+
 typedef struct {
     int id;
     const char* name;
@@ -18,9 +20,14 @@ typedef struct {
     // upgrades, not yet implemented
 } Vehicle;
 
-extern Minifigure minifigures[];
-
 extern Vehicle vehicles[];
+
+// count of minifigures
+extern int minifigures_count;
+
+// count of vehicles
+
+extern int vehicles_count;
 
 /**
  * @brief      Get the character name by its id

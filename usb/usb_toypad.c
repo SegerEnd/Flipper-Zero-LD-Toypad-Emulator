@@ -496,10 +496,11 @@ Token* createVehicle(int id, uint32_t upgrades[2]) {
     create_uid(token, id); // Create the UID
 
     // Write upgrades and id into the token array
-    writeUInt32LE(&token->token[0x23 * 4], upgrades[0]); // Upgrade[0] (Little Endian)
-    writeUInt16LE(&token->token[0x24 * 4], (uint16_t)id); // ID (Little Endian, 16-bit)
-    writeUInt32LE(&token->token[0x25 * 4], upgrades[1]); // Upgrade[1] (Little Endian)
-    writeUInt16BE(&token->token[0x26 * 4], 1, 0); // Constant value 1 (Big Endian)
+    memcpy(token->token + (0x23 * 4), &upgrades[0], sizeof(uint32_t)); // Upgrade[0]
+    memcpy(token->token + (0x24 * 4), &id, sizeof(uint16_t)); // ID
+    memcpy(token->token + (0x25 * 4), &upgrades[1], sizeof(uint32_t)); // Upgrade[1]
+    uint16_t flag = 1;
+    memcpy(token->token + (0x26 * 4), &flag, sizeof(uint16_t)); // Flag (1)
 
     // convert the name to a string
     snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));

@@ -80,6 +80,7 @@ usbd_device* get_usb_device();
 bool ToyPadEmu_remove(int index, int selectedBox);
 
 Token* createCharacter(int id);
+Token* createVehicle(int id, uint32_t upgrades[2]);
 
 int build_frame(Frame* frame, unsigned char* buf);
 

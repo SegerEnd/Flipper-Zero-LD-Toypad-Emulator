@@ -1,9 +1,8 @@
 #include "minifigures.h"
 
-#ifndef MINIFIGS
-#define MINIFIGS
+#include "furi.h"
 
-Minifigure minifigures[] = {
+Minifigure minifigures[75] = {
     {1, "Batman"},
     {2, "Gandalf"},
     {3, "Wyldstyle"},
@@ -82,19 +81,13 @@ Minifigure minifigures[] = {
     {76, "Buttercup"},
     {77, "Starfire"},
 };
+int minifigures_count = sizeof(minifigures) / sizeof(Minifigure);
 
-#endif
-
-#ifndef VEHICLES
-#define VEHICLES
-
-Vehicle vehicles[] = {
-    {1, "Batmobile"},
+Vehicle vehicles[1] = {
+    {1000, "Police Car"},
 };
 
-#endif
-
-#include "furi.h"
+int vehicles_count = sizeof(vehicles) / sizeof(Vehicle);
 
 const char* get_minifigure_name(int id) {
     for(int i = 0; minifigures[i].name != NULL; i++) {

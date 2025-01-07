@@ -32,6 +32,7 @@ typedef struct {
     // bool minifigure_submenu;
 
     uint32_t selected_minifigure_index;
+    uint32_t selected_vehicle_index;
 
     usbd_device* usbDevice;
 
@@ -46,3 +47,4 @@ typedef struct {
 } LDToyPadSceneEmulateModel;
 
 void minifigures_submenu_callback(void* context, uint32_t index);
+void vehicles_submenu_callback(void* context, uint32_t index);
