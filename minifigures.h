@@ -11,7 +11,16 @@ typedef struct {
     // const char* abilities;
 } Minifigure;
 
+typedef struct {
+    int id;
+    const char* name;
+
+    // upgrades, not yet implemented
+} Vehicle;
+
 extern Minifigure minifigures[];
+
+extern Vehicle vehicles[];
 
 /**
  * @brief      Get the character name by its id
@@ -26,6 +35,13 @@ const char* get_minifigure_name(int id);
  * @return     The character id
 */
 // int get_minifigure_id(const char* name);
+
+/**
+ * @brief      Get the vehicle name by its id
+ * @param      id    The id of the vehicle
+ * @return     The vehicle name
+*/
+const char* get_vehicle_name(int id);
 
 #ifdef __cplusplus
 }

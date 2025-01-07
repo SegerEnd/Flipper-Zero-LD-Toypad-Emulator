@@ -78,6 +78,44 @@ char* get_debug_text() {
     return debug_text;
 }
 
+uint32_t readUInt32LE(const unsigned char* buffer, int offset) {
+    return (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) |
+           ((uint32_t)buffer[offset + 2] << 16) | ((uint32_t)buffer[offset + 3] << 24);
+}
+
+uint32_t readUInt32BE(const unsigned char* buffer, int offset) {
+    return ((uint32_t)buffer[offset] << 24) | ((uint32_t)buffer[offset + 1] << 16) |
+           ((uint32_t)buffer[offset + 2] << 8) | (uint32_t)buffer[offset + 3];
+}
+
+// Function to write uint16_t to little-endian
+void writeUInt16LE(uint8_t* buffer, uint16_t value) {
+    buffer[0] = value & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+}
+
+// Function to write uint16_t to big-endian
+void writeUInt16BE(uint8_t* buffer, uint16_t value, int offset) {
+    buffer[offset] = (value >> 8) & 0xFF;
+    buffer[offset + 1] = value & 0xFF;
+}
+
+// Function to write uint32_t to little-endian
+void writeUInt32LE(uint8_t* buffer, uint32_t value) {
+    buffer[0] = value & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+    buffer[2] = (value >> 16) & 0xFF;
+    buffer[3] = (value >> 24) & 0xFF;
+}
+
+// Function to write uint32_t to big-endian
+void writeUInt32BE(uint8_t* buffer, uint32_t value, int offset) {
+    buffer[offset] = (value >> 24) & 0xFF;
+    buffer[offset + 1] = (value >> 16) & 0xFF;
+    buffer[offset + 2] = (value >> 8) & 0xFF;
+    buffer[offset + 3] = value & 0xFF;
+}
+
 // a function to convert an array of bytes to a string like 0x00, 0x01, 0x02, 0x03
 void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize) {
     int currentLength = 0;
@@ -193,89 +231,6 @@ int build_response(Response* response, unsigned char* buf) {
     memcpy(response->frame.payload + 1, response->payload, response->payload_len);
     return build_frame(&response->frame, buf);
 }
-
-void Event_init(Event* event) {
-    // if(data && len > 0) {
-    //     Frame frame;
-    //     parse_frame(&frame, data, len);
-    //     event->pad = frame.payload[0];
-    //     event->index = frame.payload[2];
-    //     event->dir = frame.payload[3];
-    //     memcpy(event->uid, frame.payload + 4, 16);
-    //     event->frame = frame;
-    // } else {
-    //     event->pad = 0;
-    //     event->index = 0;
-    //     event->dir = 0;
-    //     memset(event->uid, 0, sizeof(event->uid));
-    //     memset(&event->frame, 0, sizeof(event->frame));
-    // }
-    event->pad = 0;
-    event->index = 0;
-    event->dir = 0;
-    memset(event->uid, 0, sizeof(event->uid));
-    memset(&event->frame, 0, sizeof(event->frame));
-}
-
-// // Function to build the event into a frame
-// int Event_build(Event* event, unsigned char* buf) {
-//     // fill the buffer with empty bytes
-//     memset(buf, 0, HID_EP_SZ);
-//     memset(event->frame.payload, 0, sizeof(event->frame.payload));
-
-//     // unsigned char b[11] = {0};
-//     // b[0] = event->pad;
-//     // b[1] = 0;
-//     // b[2] = event->index;
-//     // b[3] = event->dir;
-//     // memcpy(b + 4, event->uid, 7);
-//     // for(int i = 0; i < 6; i++) {
-//     //     b[i + 4] = event->uid[i];
-//     // }
-
-//     // Calculate the checksum on b
-//     // int checksum = calculate_checksum_int(b, sizeof(b) + 1);
-
-//     // Update the event's frame
-//     // event->frame.type = 0x56;
-//     // event->frame.len = sizeof(b);
-//     // Copy the event's payload into the frame
-//     // memcpy(event->frame.payload, b, sizeof(b));
-
-//     // event->frame.len = sizeof(event->frame.payload);
-//     event->frame.len = 11; // payload length
-
-//     // Build the frame and return the size of the frame
-//     // return build_frame(&event->frame, buf);
-
-//     buf[0] = event->frame.type;
-//     // buf[1] = event->frame.len;
-//     buf[1] = 11;
-//     buf[2] = event->pad;
-//     buf[3] = 0;
-//     buf[4] = event->index;
-//     // buf[5] = event->dir;
-//     buf[5] = 0;
-//     buf[6] = 0x04;
-//     buf[7] = event->uid[1];
-//     buf[8] = event->uid[2];
-//     buf[9] = event->uid[3];
-//     buf[10] = event->uid[4];
-//     buf[11] = event->uid[5];
-//     buf[12] = 0x80;
-//     // checksum here
-//     uint8_t checksum = 0;
-
-//     // Calculate checksum
-//     for(int i = 0; i < 11; i++) {
-//         checksum = (checksum + buf[i]) % 256;
-//     }
-//     buf[13] = checksum;
-
-//     // buf[event->frame.len + 2] = checksum;
-
-//     return event->frame.len + 2;
-// }
 
 /* String descriptors */
 enum UsbDevDescStr {
@@ -415,7 +370,6 @@ FuriHalUsbInterface usb_hid_ldtoypad = {
 static usbd_respond hid_ep_config(usbd_device* dev, uint8_t cfg);
 static usbd_respond hid_control(usbd_device* dev, usbd_ctlreq* req, usbd_rqc_callback* callback);
 static usbd_device* usb_dev;
-static FuriSemaphore* hid_semaphore = NULL;
 static bool hid_connected = false;
 static HidStateCallback callback;
 static void* cb_ctx;
@@ -483,7 +437,7 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
-int get_number_of_specific_character(int id) {
+int get_token_count_of_specific_id(int id) {
     // Get the number of tokens with the same ID
     int count = 0;
 
@@ -499,20 +453,11 @@ int get_number_of_specific_character(int id) {
     return count;
 }
 
-Token* createCharacter(int id) {
-    Token* token = malloc(sizeof(Token)); // Allocate memory for the token
-
-    memset(token->token, 0, sizeof(token->token));
-
-    srand(furi_get_tick());
-
-    token->id = id; // Set the ID
-    // token.uid = malloc(7); // Dynamically allocate memory for uid
-
+void create_uid(Token* token, int id) {
     char version_name[7];
     snprintf(version_name, sizeof(version_name), "%s", furi_hal_version_get_name_ptr());
 
-    int count = get_number_of_specific_character(
+    int count = get_token_count_of_specific_id(
         id); // when multiple of the same minifigs are placed whe dont want them to have the same uid
 
     token->uid[0] = 0x04; // uid always 0x04
@@ -523,12 +468,43 @@ Token* createCharacter(int id) {
             (uint8_t)((id * 31 + count * 17 + version_name[i % sizeof(version_name)]) % 256);
     }
 
-    token->uid[6] = 0x80; // last uid byte 0x80
+    token->uid[6] = 0x80; // last uid byte always 0x80
+}
+
+Token* createCharacter(int id) {
+    Token* token = malloc(sizeof(Token)); // Allocate memory for the token
+
+    memset(token->token, 0, sizeof(token->token));
+
+    token->id = id; // Set the ID
+
+    create_uid(token, id); // Create the UID
 
     // convert the name to a string
     snprintf(token->name, sizeof(token->name), "%s", get_minifigure_name(id));
 
     return token; // Return the created token
+}
+
+Token* createVehicle(int id, uint32_t upgrades[2]) {
+    Token* token = malloc(sizeof(Token)); // Allocate memory for the token
+
+    memset(token->token, 0, sizeof(token->token));
+
+    token->id = id; // Set the ID
+
+    create_uid(token, id); // Create the UID
+
+    // Write upgrades and id into the token array
+    writeUInt32LE(&token->token[0x23 * 4], upgrades[0]); // Upgrade[0] (Little Endian)
+    writeUInt16LE(&token->token[0x24 * 4], (uint16_t)id); // ID (Little Endian, 16-bit)
+    writeUInt32LE(&token->token[0x25 * 4], upgrades[1]); // Upgrade[1] (Little Endian)
+    writeUInt16BE(&token->token[0x26 * 4], 1, 0); // Constant value 1 (Big Endian)
+
+    // convert the name to a string
+    snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
+
+    return token;
 }
 
 // void ToyPadEmu_place(Token* new_token) {
@@ -594,7 +570,6 @@ bool ToyPadEmu_remove(int index, int selectedBox) {
 static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     UNUSED(intf);
     FuriHalUsbHidConfig* cfg = (FuriHalUsbHidConfig*)ctx;
-    if(hid_semaphore == NULL) hid_semaphore = furi_semaphore_alloc(1, 1);
     usb_dev = dev;
 
     // if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
@@ -667,7 +642,6 @@ static void hid_on_suspend(usbd_device* dev) {
     UNUSED(dev);
     if(hid_connected) {
         hid_connected = false;
-        furi_semaphore_release(hid_semaphore);
         if(callback != NULL) {
             callback(false, cb_ctx);
         }
@@ -680,32 +654,6 @@ void hid_in_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     UNUSED(dev);
 
     // nothing to do here
-}
-
-uint32_t readUInt32LE(const unsigned char* buffer, int offset) {
-    return (uint32_t)buffer[offset] | ((uint32_t)buffer[offset + 1] << 8) |
-           ((uint32_t)buffer[offset + 2] << 16) | ((uint32_t)buffer[offset + 3] << 24);
-}
-
-uint32_t readUInt32BE(const unsigned char* buffer, int offset) {
-    return ((uint32_t)buffer[offset] << 24) | ((uint32_t)buffer[offset + 1] << 16) |
-           ((uint32_t)buffer[offset + 2] << 8) | (uint32_t)buffer[offset + 3];
-}
-
-// Function to write uint32_t to little-endian
-void writeUInt32LE(uint8_t* buffer, uint32_t value) {
-    buffer[0] = value & 0xFF;
-    buffer[1] = (value >> 8) & 0xFF;
-    buffer[2] = (value >> 16) & 0xFF;
-    buffer[3] = (value >> 24) & 0xFF;
-}
-
-// Function to write uint32_t to big-endian
-void writeUInt32BE(uint8_t* buffer, uint32_t value, int offset) {
-    buffer[offset] = (value >> 24) & 0xFF;
-    buffer[offset + 1] = (value >> 16) & 0xFF;
-    buffer[offset + 2] = (value >> 8) & 0xFF;
-    buffer[offset + 3] = value & 0xFF;
 }
 
 void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {

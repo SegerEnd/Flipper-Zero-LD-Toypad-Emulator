@@ -169,7 +169,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         ldtoypad_setting_minifig_only_mode_change,
         app);
     bool setting_minifig_only_mode =
-        true; // currently true because, vehicles aren't implemented yet. Little bit annoying to go through the double selection currently.
+        false; // currently true because, vehicles aren't implemented yet. Little bit annoying to go through the double selection currently.
     variable_item_set_current_value_index(item, setting_minifig_only_mode);
     variable_item_set_current_value_text(item, setting_no_yes[setting_minifig_only_mode]);
 

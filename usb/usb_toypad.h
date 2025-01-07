@@ -54,16 +54,6 @@ typedef struct {
     int payload_len;
 } Request;
 
-// Event structure
-
-typedef struct {
-    Frame frame;
-    int pad;
-    int index;
-    int dir;
-    int uid[7];
-} Event;
-
 extern FuriHalUsbInterface usb_hid_ldtoypad;
 
 // typedef enum {
@@ -87,17 +77,9 @@ void set_debug_text_ep_in(char* text);
 
 usbd_device* get_usb_device();
 
-// void ToyPadEmu_randomUID(unsigned char* uid);
-
 bool ToyPadEmu_remove(int index, int selectedBox);
 
 Token* createCharacter(int id);
-
-// void ToyPadEmu_place(Token token);
-
-void Event_init(Event* event);
-
-int Event_build(Event* event, unsigned char* buf);
 
 int build_frame(Frame* frame, unsigned char* buf);
 

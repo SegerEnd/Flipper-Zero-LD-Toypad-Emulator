@@ -85,6 +85,15 @@ Minifigure minifigures[] = {
 
 #endif
 
+#ifndef VEHICLES
+#define VEHICLES
+
+Vehicle vehicles[] = {
+    {1, "Batmobile"},
+};
+
+#endif
+
 #include "furi.h"
 
 const char* get_minifigure_name(int id) {
@@ -104,3 +113,12 @@ const char* get_minifigure_name(int id) {
 //     }
 //     return -1;
 // }
+
+const char* get_vehicle_name(int id) {
+    for(int i = 0; vehicles[i].name != NULL; i++) {
+        if(vehicles[i].id == id) {
+            return vehicles[i].name;
+        }
+    }
+    return "?";
+}
