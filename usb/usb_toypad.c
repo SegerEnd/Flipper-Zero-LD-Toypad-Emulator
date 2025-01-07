@@ -458,16 +458,6 @@ usbd_device* get_usb_device() {
 
 Burtle* burtle; // Define the Burtle object
 
-// Generate random UID
-void ToyPadEmu_randomUID(unsigned char* uid) {
-    srand(furi_get_tick()); // Set the seed to random value
-    uid[0] = 0x04; // vendor id = NXP
-    for(int i = 1; i < 6; i++) { // Fill the middle 4 bytes
-        uid[i] = rand() % 256;
-    }
-    uid[6] = 0x80; // Set the last byte to 0x80
-}
-
 void ToyPadEmu_init(ToyPadEmu* emu) {
     emu->token_count = 0;
 
@@ -493,6 +483,22 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
+int get_number_of_specific_character(int id) {
+    // Get the number of tokens with the same ID
+    int count = 0;
+
+    for(int i = 0; i < 128; i++) {
+        if(emulator->tokens[i] != NULL) {
+            if(emulator->tokens[i]->id == id) {
+                count++;
+            }
+        } else {
+            break;
+        }
+    }
+    return count;
+}
+
 Token* createCharacter(int id) {
     Token* token = malloc(sizeof(Token)); // Allocate memory for the token
 
@@ -502,13 +508,21 @@ Token* createCharacter(int id) {
 
     token->id = id; // Set the ID
     // token.uid = malloc(7); // Dynamically allocate memory for uid
-    // ToyPadEmu_randomUID(token.uid); // Generate a random UID
+
+    char version_name[7];
+    snprintf(version_name, sizeof(version_name), "%s", furi_hal_version_get_name_ptr());
+
+    int count = get_number_of_specific_character(
+        id); // when multiple of the same minifigs are placed whe dont want them to have the same uid
+
     token->uid[0] = 0x04; // uid always 0x04
-    token->uid[1] = rand() % 256; // Random uid
-    token->uid[2] = rand() % 256; // Random uid
-    token->uid[3] = rand() % 256; // Random uid
-    token->uid[4] = rand() % 256; // Random uid
-    token->uid[5] = rand() % 256; // Random uid
+
+    for(int i = 1; i <= 5; i++) {
+        // Combine id, version_name, and index for a hash
+        token->uid[i] =
+            (uint8_t)((id * 31 + count * 17 + version_name[i % sizeof(version_name)]) % 256);
+    }
+
     token->uid[6] = 0x80; // last uid byte 0x80
 
     // convert the name to a string

@@ -96,11 +96,11 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
             } else {
                 // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
                 if(event->key == InputKeyOk) {
-                    if(event->type == InputTypePress && model->connected) {
+                    if(event->type == InputTypePress) {
                         model->ok_pressed = true;
 
                         // if the current selected box is not filled, we want to switch to the minifigure selection screen
-                        if(!boxInfo[selectedBox].isFilled) {
+                        if(!boxInfo[selectedBox].isFilled && model->connected) {
                             // set current view to minifigure / vehicle selection screen
                             model->show_screen_minfig_vehicle = true;
 
@@ -367,7 +367,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
                 char letter[1];
                 letter[0] = character->name[0];
 
-                elements_multiline_text(canvas, boxInfo[i].x + 6, boxInfo[i].y + 12, letter);
+                canvas_draw_str(canvas, boxInfo[i].x + 6, boxInfo[i].y + 12, letter);
             }
 
             // Set the connection status text to the currently connected minifigure name
@@ -393,12 +393,28 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
                 canvas, 1, 1, AlignLeft, AlignTop, get_debug_text_ep_in());
         }
 
-        // canvas_set_color(canvas, ColorWhite);
-        // canvas_draw_box(canvas, 0, 16, 120, 16);
-        // canvas_set_color(canvas, ColorBlack);
+        canvas_set_color(canvas, ColorWhite);
+        canvas_draw_box(canvas, 0, 16, 120, 20);
+        canvas_set_color(canvas, ColorBlack);
 
-        elements_multiline_text_framed(canvas, 1, 17, "Debug: ");
-        elements_multiline_text_framed(canvas, 40, 17, get_debug_text());
+        elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
+        elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
+    }
+
+    if(!model->connected && model->ok_pressed) {
+        // when boxes at the right side of the screen are pressed, show message at the left side
+        if(selectedBox == 2 || selectedBox == 6) {
+            x -= 75;
+            y += 10;
+        } else if(selectedBox == 1) {
+            x -= 30;
+            y += 22;
+        } else {
+            x += 20;
+            y += 10;
+        }
+
+        elements_multiline_text_framed(canvas, x, y, "Connect Game");
     }
 }
 
