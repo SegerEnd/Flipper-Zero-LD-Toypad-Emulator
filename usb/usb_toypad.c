@@ -437,7 +437,7 @@ void ToyPadEmu_init(ToyPadEmu* emu) {
     // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
 }
 
-int get_token_count_of_specific_id(int id) {
+int get_token_count_of_specific_id(unsigned int id) {
     // Get the number of tokens with the same ID
     int count = 0;
 
@@ -502,24 +502,20 @@ Token* createVehicle(int id, uint32_t upgrades[2]) {
     create_uid(token, id); // Create the UID
 
     // Write upgrades and id into the token array
-    memcpy(&token->token[0x23 * 4], &upgrades[0], sizeof(upgrades[0]));
-    memcpy(&token->token[0x24 * 4], &id, sizeof(uint16_t)); // 2 bytes for ID
-    memcpy(&token->token[0x25 * 4], &upgrades[1], sizeof(upgrades[1]));
-    uint16_t value = 1;
-    memcpy(&token->token[0x26 * 4], &value, sizeof(value));
+    uint32_t upgrade0 = (uint32_t)upgrades[0];
+    uint16_t v_id = (uint16_t)id;
+    uint32_t upgrade1 = (uint32_t)upgrades[1];
+    memcpy(token->token + (0x23 * 4), &upgrade0, sizeof(uint32_t)); // Upgrade[0]
+    memcpy(token->token + (0x24 * 4), &v_id, sizeof(uint16_t)); // ID
+    memcpy(token->token + (0x25 * 4), &upgrade1, sizeof(uint32_t)); // Upgrade[1]
+    uint16_t value = (uint16_t)1;
+    memcpy(token->token + (0x26 * 4), &value, sizeof(uint16_t));
 
     // convert the name to a string
     snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
 
     return token;
 }
-
-// void ToyPadEmu_place(Token* new_token) {
-//     // Add the token to the emulator
-//     new_token->index = emulator->token_count;
-//     emulator->tokens[new_token.index] = new_token;
-//     emulator->token_count++;
-// }
 
 // Remove a token
 bool ToyPadEmu_remove(int index, int selectedBox) {
@@ -773,8 +769,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         token = NULL;
 
-        // furi_delay_ms(100);
-
         sprintf(debug_text_ep_in, "Search token?");
 
         // Find the token that matches the ind
@@ -789,10 +783,11 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
                 }
             }
         }
-        int start = page * 4;
 
         if(token) {
             sprintf(debug_text_ep_in, "Is a token");
+
+            int start = page * 4;
             memcpy(response.payload + 1, token->token + start, 16);
         }
 
@@ -804,7 +799,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
 
-        uint8_t index = request.payload[0];
+        int index = request.payload[0];
         conf = readUInt32BE(request.payload, 4);
 
         // create a buf with 8 bytes
@@ -830,17 +825,18 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
                 sprintf(debug_text_ep_in, "Found a model ID");
             } else {
                 response.payload[0] = 0xF9;
-                sprintf(debug_text_ep_in, "Found a model token");
+                sprintf(debug_text_ep_in, "Found a model token not ID");
             }
         } else {
             response.payload[0] = 0xF2;
+            sprintf(debug_text_ep_in, "No model token found");
         }
 
         // encrypt the buf with the TEA
-        tea_encrypt(buf, emulator->tea_key, buf);
+        tea_encrypt(buf, emulator->tea_key, response.payload + 1);
 
         // copy the buf to the response payload
-        memcpy(response.payload + 1, buf, 8);
+        // memcpy(response.payload + 1, buf, 8);
 
         response.payload_len = 9;
         break;
