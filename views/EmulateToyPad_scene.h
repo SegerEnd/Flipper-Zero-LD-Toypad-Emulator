@@ -10,16 +10,11 @@
 
 typedef struct LDToyPadSceneEmulate LDToyPadSceneEmulate;
 
-// LDToyPadEmulateView* usb_hid_dirpad_alloc(); // This is the original old function name from: https://github.com/huuck/FlipperZeroUSBKeyboard/blob/main/views/usb_hid_dirpad.h
 LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc();
 
 void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate);
 
 View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* ldtoypad_scene_emulate);
-
-// View* ldtoypad_emulate_get_view(LDToyPadEmulateView* ldtoypad_emulate);
-
-// void ldtoypad_emulate_set_connected_status(LDToyPadEmulateView* ldtoypad_emulate, bool connected);
 
 unsigned char generate_checksum_for_command(const unsigned char* command, size_t len);
 
@@ -34,16 +29,22 @@ typedef struct {
     bool back_pressed;
     bool connected;
     char* connection_status;
-    bool minifigure_submenu;
+    // bool minifigure_submenu;
 
     uint32_t selected_minifigure_index;
-
-    // uint8_t selectedBox = 0;
+    uint32_t selected_vehicle_index;
 
     usbd_device* usbDevice;
 
-    // uint32_t setting_1_index; // The team color setting index
+    // setting indexes below
     bool show_debug_text_index;
+    bool show_icons_index;
+    bool minifig_only_mode;
+
+    // Inner-screens / pseudo-screens
+    bool show_screen_minfig_vehicle;
+    bool screen_minfig_vehicle_minfig_box_selected;
 } LDToyPadSceneEmulateModel;
 
 void minifigures_submenu_callback(void* context, uint32_t index);
+void vehicles_submenu_callback(void* context, uint32_t index);

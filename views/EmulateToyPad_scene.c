@@ -1,6 +1,7 @@
 #include "EmulateToyPad_scene.h"
 
 #include "../ldtoypad.h"
+#include "sub_screens.h"
 
 #include <furi.h>
 #include <furi_hal.h>
@@ -13,9 +14,13 @@
 
 #include "dolphin/dolphin.h"
 
+#include "minifigures.h"
+
 #define numBoxes 7 // the number of boxes (7 boxes always)
 
 LDToyPadApp* app;
+
+LDToyPadSceneEmulate* toypadscene_instance;
 
 FuriHalUsbInterface* usb_mode_prev = NULL;
 
@@ -44,7 +49,7 @@ struct BoxInfo {
 
 struct BoxInfo boxInfo[] = {
     {18, 26, false, -1}, // Selection 0 (box)
-    {50, 20, false, -1}, // Selection 1 (circle, assumed not filled)
+    {50, 20, false, -1}, // Selection 1 (circle)
     {85, 27, false, -1}, // Selection 2 (box)
     {16, 40, false, -1}, // Selection 3 (box)
     {35, 41, false, -1}, // Selection 4 (box)
@@ -62,7 +67,7 @@ struct LDToyPadSceneEmulate {
 };
 
 // The selected pad on the toypad
-uint8_t selectedBox = 0; // Variable to keep track of which toypad box is selected
+uint8_t selectedBox = 1; // Variable to keep track of which toypad box is selected
 
 bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
     LDToyPadSceneEmulate* instance = context;
@@ -74,100 +79,125 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
         instance->view,
         LDToyPadSceneEmulateModel * model,
         {
-            // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
-            if(event->key == InputKeyOk) {
-                if(event->type == InputTypePress && model->connected) {
-                    model->ok_pressed = true;
-
-                    // if the current selected box is not filled, we want to switch to the minifigure selection screen
-                    if(!boxInfo[selectedBox].isFilled) {
-                        // set current view to minifigure selection screen
-                        view_dispatcher_switch_to_view(
-                            app->view_dispatcher, ViewMinifigureSelection);
-                    } else if(boxInfo[selectedBox].isFilled) {
-                        // if the box is filled, we want to remove the minifigure from the selected box
-
-                        // get the index of the minifigure in the selected box
-                        int i = -1;
-
-                        // check if the selected box in boxInfo get the token index
-                        if(boxInfo[selectedBox].index >= 0) {
-                            i = boxInfo[selectedBox].index;
-
-                            if(ToyPadEmu_remove(i, selectedBox)) {
-                                // set the box to not filled
-                                boxInfo[selectedBox].isFilled = false;
-
-                                // set debug text
-                                set_debug_text("Removed minifigure from toypad");
-                            }
+            if(model->show_screen_minfig_vehicle) {
+                if(event->type == InputTypePress) {
+                    if(event->key == InputKeyLeft || event->key == InputKeyRight) {
+                        model->screen_minfig_vehicle_minfig_box_selected =
+                            !model->screen_minfig_vehicle_minfig_box_selected;
+                    }
+                    // when ok is pressed and minifigure box is selected, we want to switch to the minifigure submenu else show vehicle screen
+                    if(event->key == InputKeyOk) {
+                        if(model->screen_minfig_vehicle_minfig_box_selected) {
+                            view_dispatcher_switch_to_view(
+                                app->view_dispatcher, ViewMinifigureSelection);
+                        } else {
+                            // model->show_screen_minfig_vehicle = false;
+                            view_dispatcher_switch_to_view(
+                                app->view_dispatcher, ViewVehicleSelection);
                         }
                     }
+                }
+            } else {
+                // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
+                if(event->key == InputKeyOk) {
+                    if(event->type == InputTypePress) {
+                        model->ok_pressed = true;
 
-                    consumed = true;
-                    return consumed;
+                        // if the current selected box is not filled, we want to switch to the minifigure selection screen
+                        if(!boxInfo[selectedBox].isFilled && model->connected) {
+                            // set current view to minifigure / vehicle selection screen
+                            model->show_screen_minfig_vehicle = true;
 
-                } else if(event->type == InputTypeRelease) {
-                    model->ok_pressed = false;
-                }
-            }
-            // make user loop through boxes with InputKeyLeft, InputKeyRight, InputKeyUp, InputKeyDown
-            if(event->key == InputKeyLeft) {
-                if(event->type == InputTypePress) {
-                    model->left_pressed = true;
-                    if(selectedBox == 0) {
-                        selectedBox = numBoxes;
-                    }
-                    selectedBox--;
-                } else if(event->type == InputTypeRelease) {
-                    model->left_pressed = false;
-                }
-            }
-            if(event->key == InputKeyRight) {
-                if(event->type == InputTypePress) {
-                    model->right_pressed = true;
-                    selectedBox++;
-                    if(selectedBox >= numBoxes) {
-                        selectedBox = 0;
-                    }
-                } else if(event->type == InputTypeRelease) {
-                    model->right_pressed = false;
-                }
-            }
-            if(event->key == InputKeyUp) {
-                if(event->type == InputTypePress) {
-                    model->up_pressed = true;
-                    if(selectedBox == 0) {
-                        selectedBox = 3;
-                    } else if(selectedBox >= 4) {
-                        selectedBox -= 4;
-                    } else {
-                        selectedBox = (numBoxes - 3) + selectedBox;
-                    }
-                    if(selectedBox >= numBoxes) {
-                        selectedBox = 0;
-                    }
-                } else if(event->type == InputTypeRelease) {
-                    model->up_pressed = false;
-                }
-            }
+                            if(model->minifig_only_mode) {
+                                view_dispatcher_switch_to_view(
+                                    app->view_dispatcher, ViewMinifigureSelection);
+                            }
 
-            if(event->key == InputKeyDown) {
-                if(event->type == InputTypePress) {
-                    model->down_pressed = true;
-                    if(selectedBox == 2) {
-                        selectedBox = 6;
-                    } else if(selectedBox == 3) {
-                        selectedBox = 0;
-                    } else if(selectedBox == 5) {
-                        selectedBox = 2;
-                    } else if(selectedBox < (numBoxes - 3)) {
-                        selectedBox += 3;
-                    } else {
-                        selectedBox = selectedBox - (numBoxes - 3);
+                        } else if(boxInfo[selectedBox].isFilled) {
+                            // if the box is filled, we want to remove the minifigure from the selected box
+
+                            // get the index of the minifigure in the selected box
+                            int i = -1;
+
+                            // check if the selected box in boxInfo get the token index
+                            if(boxInfo[selectedBox].index >= 0) {
+                                i = boxInfo[selectedBox].index;
+
+                                if(ToyPadEmu_remove(i, selectedBox)) {
+                                    // set the box to not filled
+                                    boxInfo[selectedBox].isFilled = false;
+
+                                    // set debug text
+                                    set_debug_text("Removed minifigure from toypad");
+
+                                    consumed = true;
+                                }
+                            }
+                            return consumed;
+                        }
+
+                    } else if(event->type == InputTypeRelease) {
+                        model->ok_pressed = false;
                     }
-                } else if(event->type == InputTypeRelease) {
-                    model->down_pressed = false;
+                }
+                // make user loop through boxes with InputKeyLeft, InputKeyRight, InputKeyUp, InputKeyDown
+                if(event->key == InputKeyLeft) {
+                    if(event->type == InputTypePress) {
+                        model->left_pressed = true;
+                        if(selectedBox == 0) {
+                            selectedBox = numBoxes;
+                        }
+                        selectedBox--;
+                    } else if(event->type == InputTypeRelease) {
+                        model->left_pressed = false;
+                    }
+                }
+                if(event->key == InputKeyRight) {
+                    if(event->type == InputTypePress) {
+                        model->right_pressed = true;
+                        selectedBox++;
+                        if(selectedBox >= numBoxes) {
+                            selectedBox = 0;
+                        }
+                    } else if(event->type == InputTypeRelease) {
+                        model->right_pressed = false;
+                    }
+                }
+                if(event->key == InputKeyUp) {
+                    if(event->type == InputTypePress) {
+                        model->up_pressed = true;
+                        if(selectedBox == 0) {
+                            selectedBox = 3;
+                        } else if(selectedBox >= 4) {
+                            selectedBox -= 4;
+                        } else {
+                            selectedBox = (numBoxes - 3) + selectedBox;
+                        }
+                        if(selectedBox >= numBoxes) {
+                            selectedBox = 0;
+                        }
+                    } else if(event->type == InputTypeRelease) {
+                        model->up_pressed = false;
+                    }
+                }
+
+                if(event->key == InputKeyDown) {
+                    if(event->type == InputTypePress) {
+                        model->down_pressed = true;
+                        if(selectedBox == 2) {
+                            selectedBox = 6;
+                        } else if(selectedBox == 3) {
+                            selectedBox = 0;
+                        } else if(selectedBox == 5) {
+                            selectedBox = 2;
+                        } else if(selectedBox < (numBoxes - 3)) {
+                            selectedBox += 3;
+                        } else {
+                            selectedBox = selectedBox - (numBoxes - 3);
+                        }
+                    } else if(event->type == InputTypeRelease) {
+                        model->down_pressed = false;
+                    }
                 }
             }
         },
@@ -225,6 +255,11 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // UNUSED(context);
     LDToyPadSceneEmulateModel* model = context;
 
+    if(model->show_screen_minfig_vehicle) {
+        draw_minifigure_vehicle_screen(canvas, model->screen_minfig_vehicle_minfig_box_selected);
+        return;
+    }
+
     // when the usb device is not set in modek, set it
     if(model->usbDevice == NULL) {
         model->usbDevice = get_usb_device();
@@ -236,6 +271,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         set_connected_status(
             1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
         model->connection_status = "USB Awoken";
+        model->screen_minfig_vehicle_minfig_box_selected =
+            true; // Set the minifigure box selected as this is the most commonnly used at start of the app.
 
         // reset the filled boxes
         for(int i = 0; i < numBoxes; i++) {
@@ -244,8 +281,13 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         // Give dolphin some xp for connecting the toypad
         dolphin_deed(DolphinDeedPluginStart);
+
+        if(toypadscene_instance->timer != NULL) {
+            furi_timer_stop(toypadscene_instance->timer);
+            furi_timer_start(toypadscene_instance->timer, furi_ms_to_ticks(5000));
+        }
     } else if(model->connected) {
-        model->connection_status = "Connected";
+        model->connection_status = "USB Connected";
     } else if(model->usbDevice == NULL) {
         model->connection_status = "USB not yet connected";
     } else if(!model->connected) {
@@ -293,10 +335,56 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         // generate the checksum
         buffer[13] = generate_checksum_for_command(buffer, 13);
 
-        usbd_ep_write(model->usbDevice, 0x81, buffer, sizeof(buffer));
+        usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
 
         // Give dolphin some xp for placing a minifigure
         dolphin_deed(DolphinDeedNfcReadSuccess);
+    } else if(model->selected_vehicle_index > 0 && model->connected) {
+        int id = (int)model->selected_vehicle_index;
+        model->selected_vehicle_index = 0;
+
+        set_debug_text("Render vehicle");
+
+        unsigned char buffer[32];
+
+        memset(buffer, 0, sizeof(buffer));
+
+        if(id < 1000) {
+            id = 1000;
+        }
+
+        uint32_t upgrades[2] = {0xEFFFFFFF, 0xEFFFFFFF};
+
+        Token* vehicle = createVehicle(1030, upgrades);
+
+        boxInfo[selectedBox].isFilled = true;
+
+        selectedBox_to_pad(vehicle, selectedBox);
+
+        vehicle->index = emulator->token_count;
+        emulator->tokens[vehicle->index] = vehicle;
+        emulator->token_count++; // Set the token count for a new vehicle
+
+        boxInfo[selectedBox].index = vehicle->index;
+
+        // set the data to the buffer
+        buffer[0] = 0x56; // magic number always 0x56
+        buffer[1] = 0x0b; // size always 0x0b (11)
+        buffer[2] = vehicle->pad;
+        buffer[3] = 0x00; // always 0
+        buffer[4] = vehicle->index;
+        buffer[5] = 0x00; // tag placed / removed
+        buffer[6] = vehicle->uid[0]; // first uid always 0x04
+        buffer[7] = vehicle->uid[1];
+        buffer[8] = vehicle->uid[2];
+        buffer[9] = vehicle->uid[3];
+        buffer[10] = vehicle->uid[4];
+        buffer[11] = vehicle->uid[5];
+        buffer[12] = vehicle->uid[6]; // last uid byte always 0x80
+        // generate the checksum
+        buffer[13] = generate_checksum_for_command(buffer, 13);
+
+        usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
     }
 
     canvas_clear(canvas);
@@ -318,8 +406,24 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // when the box is filled, draw the minifigure icon
     for(int i = 0; i < numBoxes; i++) {
         if(boxInfo[i].isFilled) {
-            // Draw the minifigure icon
-            canvas_draw_icon(canvas, boxInfo[i].x + 3, boxInfo[i].y + 3, &I_head);
+            Token* character = emulator->tokens[boxInfo[i].index];
+            if(model->show_icons_index) {
+                // Draw the minifigure icon
+                canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_head);
+            } else {
+                // Draw the first letter of the minifigure name
+
+                // get the first letter of the minifigure name
+                char letter[1];
+                letter[0] = character->name[0];
+
+                canvas_draw_str(canvas, boxInfo[i].x + 6, boxInfo[i].y + 12, letter);
+            }
+
+            // Set the connection status text to the currently connected minifigure name
+            if(selectedBox == i) {
+                model->connection_status = character->name;
+            }
         }
     }
 
@@ -340,21 +444,43 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         }
 
         canvas_set_color(canvas, ColorWhite);
-        canvas_draw_box(canvas, 0, 16, 120, 16);
+        canvas_draw_box(canvas, 0, 16, 120, 20);
         canvas_set_color(canvas, ColorBlack);
 
         elements_multiline_text_aligned(canvas, 1, 17, AlignLeft, AlignTop, "Debug: ");
         elements_multiline_text_aligned(canvas, 40, 17, AlignLeft, AlignTop, get_debug_text());
+    }
+
+    if(!model->connected && model->ok_pressed) {
+        // when boxes at the right side of the screen are pressed, show message at the left side
+        if(selectedBox == 2 || selectedBox == 6) {
+            x -= 75;
+            y += 10;
+        } else if(selectedBox == 1) {
+            x -= 30;
+            y += 22;
+        } else {
+            x += 20;
+            y += 10;
+        }
+
+        elements_multiline_text_framed(canvas, x, y, "Connect Game");
     }
 }
 
 static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context) {
     UNUSED(context);
 
-    // if(usb_mode_prev != NULL) {
-    //     furi_hal_usb_set_config(usb_mode_prev, NULL);
-    //     free(usb_mode_prev);
-    // }
+    with_view_model(
+        ldtoypad_scene_emulate_get_view(toypadscene_instance),
+        LDToyPadSceneEmulateModel * model,
+        {
+            if(model->show_screen_minfig_vehicle) {
+                model->show_screen_minfig_vehicle = false;
+                return ViewEmulate;
+            }
+        },
+        false);
 
     return ViewSubmenu;
 }
@@ -366,7 +492,7 @@ void ldtoypad_scene_emulate_view_game_timer_callback(void* context) {
 }
 
 void ldtoypad_scene_emulate_enter_callback(void* context) {
-    uint32_t period = furi_ms_to_ticks(150);
+    uint32_t period = furi_ms_to_ticks(200); // 5 seconds
     LDToyPadSceneEmulate* app = (LDToyPadSceneEmulate*)context;
     furi_assert(app->timer == NULL);
     app->timer = furi_timer_alloc(
@@ -411,6 +537,8 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     LDToyPadSceneEmulate* instance = malloc(sizeof(LDToyPadSceneEmulate));
     instance->view = view_alloc();
 
+    toypadscene_instance = instance;
+
     // ldtoypad_view_dispatcher = view_dispatcher;
 
     usb_mode_prev = furi_hal_usb_get_config();
@@ -423,23 +551,13 @@ LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc(LDToyPadApp* new_app) {
     // view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_callback);
     view_set_draw_callback(instance->view, ldtoypad_scene_emulate_draw_render_callback);
     view_set_input_callback(instance->view, ldtoypad_scene_emulate_input_callback);
-    // view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
-    // view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
+
     view_set_previous_callback(instance->view, ldtoypad_scene_emulate_navigation_submenu_callback);
 
     view_set_enter_callback(instance->view, ldtoypad_scene_emulate_enter_callback);
-
     view_set_exit_callback(instance->view, ldtoypad_scene_emulate_exit_callback);
 
     view_set_custom_callback(instance->view, ldtoypad_scene_emulate_custom_event_callback);
-
-    // Allocate the submenu
-    // selectionMenu = submenu_alloc();
-    // view_set_previous_callback(submenu_get_view(selectionMenu), selectionMenu_prev_callback);
-    // view_dispatcher_add_view(
-    //     ldtoypad_view_dispatcher, LDToyPadView_SelectionMenu, submenu_get_view(selectionMenu));
-
-    // Items for the submenu as characters and vehicles
 
     return instance;
 }
@@ -458,7 +576,7 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     free(ldtoypad_emulate_view);
 
     // free all the tokens ( needs a better solution later )
-    for(int i = 0; i < 128; i++) {
+    for(int i = 0; i < 8; i++) {
         if(emulator->tokens[i] != NULL) {
             free(emulator->tokens[i]);
         }
@@ -474,21 +592,35 @@ View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* instance) {
 void minifigures_submenu_callback(void* context, uint32_t index) {
     LDToyPadApp* app = (LDToyPadApp*)context;
 
-    // print index of selected minifigure as debug text
-    // char debug_text[10];
-    // // convert the long unsigned int to a string
-    // snprintf(debug_text, 10, "%ld", index);
-    // // set the debug text
-    // set_debug_text(debug_text);
+    // set current view to minifigure number to the selected index
+    with_view_model(
+        ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
+        LDToyPadSceneEmulateModel * model,
+        {
+            model->selected_vehicle_index = 0;
+            if(model->connected) {
+                model->selected_minifigure_index = index;
+            }
+            model->show_screen_minfig_vehicle = false;
+        },
+        true);
+
+    view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
+}
+
+void vehicles_submenu_callback(void* context, uint32_t index) {
+    LDToyPadApp* app = (LDToyPadApp*)context;
 
     // set current view to minifigure number to the selected index
     with_view_model(
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
         LDToyPadSceneEmulateModel * model,
         {
+            model->selected_minifigure_index = 0;
             if(model->connected) {
-                model->selected_minifigure_index = index;
+                model->selected_vehicle_index = index;
             }
+            model->show_screen_minfig_vehicle = false;
         },
         true);
 

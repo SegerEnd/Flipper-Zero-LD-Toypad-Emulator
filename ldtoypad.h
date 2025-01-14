@@ -40,21 +40,22 @@ typedef struct {
 
     Widget* widget_about; // The about screen
 
-    char* temp_buffer; // Temporary buffer for text input
-    uint32_t temp_buffer_size; // Size of temporary buffer
+    // char* temp_buffer; // Temporary buffer for text input
+    // uint32_t temp_buffer_size; // Size of temporary buffer
 
     Submenu* submenu_minifigure_selection; // The minifigure selection screen
-
+    Submenu* submenu_vehicle_selection; // The vehicle selection screen
 } LDToyPadApp;
 
 // Each view is a screen we show the user.
 typedef enum {
     ViewSubmenu, // The menu when the app starts
-    ViewTextInput, // Input for configuring text settings
+    // ViewTextInput, // Input for configuring text settings
     ViewConfigure, // The configuration screen
     ViewEmulate, // The main screen
     ViewAbout, // The about screen with directions, link to social channel, etc.
     ViewMinifigureSelection, // The minifigure selection screen
+    ViewVehicleSelection, // The vehicle selection screen
 } Views;
 
 ViewDispatcher* get_view_dispatcher();

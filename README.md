@@ -3,25 +3,28 @@
 This project aims to create a USB emulation app for the Flipper Zero to emulate the functionality of a Lego Dimensions ToyPad.
 
 ## Project Status
-The project is currently in development, but I'm encountering some issues that I need help with. If you're passionate about reverse engineering, USB emulation, or have experience with the Flipper Zero app programming, your help and expertise would be greatly appreciated and is needed to continue this project.
+The project is currently in development. **Character placement is working** 🎉, but there are issues with vehicle emulation and the placement indexes for characters.
 
-## Planned Features
-Emulate Lego Dimensions ToyPad via USB using Flipper Zero.
+## Features
+Placing characters on the ToyPad,
+When the ToyPad is connected to the game, you can use the **arrow keys** to select a spot on the ToyPad
 
-USB packet emulation for Lego Dimensions ToyPad interaction.
+![Schermafbeelding 2025-01-14 163051](https://github.com/user-attachments/assets/e62fb2bd-8ee1-4b7e-9271-cc68068758d9)
 
-Interface on the Flipper Zero to select minifigures and add to a slot on the toypad
+And press **OK** to select a character from the list:
+
+![Schermafbeelding 2025-01-14 163150](https://github.com/user-attachments/assets/9f47cb9d-1990-476e-adb0-3872d39496f8)
 
 ## Current Issues
-I'm currently facing the following challenges:
+I'm currently facing the following issues:
 
-#### Issue 1 USB Connection:
-The Flipper Zero is not being detected as a toypad by the PlayStation maybe I need to send and recieve some start packets?
-#### Issue 2 Packet generation logic (checksum):
-Implement the necessary packet generation logic to replicate the communication between the ToyPad and the videogame
+#### Vehicles:
+Currenly vehicles are not working there is, I think a issue in the CMD_MODEL or CMD_READ or with the packet generation that is causing it not to work
+#### Issue character removing
+When removing a character from the ToyPad, the figure is removed, but the indexes are not reset/shifted correctly. Causing unexpected behavior afterwards.
 
 ## Code Reference
-I have found a similar project that might be useful for insight and code snippets for the emulation. [Node LD](https://github.com/AlinaNova21/node-ld) & [LD-ToyPad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator) repository, which could help us understand specific aspects of the ToyPad emulation process.
+I have found a similar project that helped this project for insight and code snippets for the emulation. [Node LD](https://github.com/AlinaNova21/node-ld) & [LD-ToyPad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator) repository.
 
 #
-If you have any insights, solutions, you can help me by making a pull request and reach out to me or fork this project.
+If you'd like to help complete this project, feel free to make a pull request or reach out to me!

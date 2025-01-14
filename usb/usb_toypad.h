@@ -7,18 +7,21 @@
 extern "C" {
 #endif
 
-#define HID_EP_SZ 0x20
+#define HID_EP_SZ  0x20 // 32 bytes packet size
+#define HID_EP_IN  0x81
+#define HID_EP_OUT 0x01
 
 typedef struct {
     unsigned char index;
-    unsigned char id;
+    unsigned int id;
     unsigned int pad;
     unsigned char uid[7];
     unsigned char token[180];
+    char name[16];
 } Token;
 
 typedef struct {
-    Token* tokens[128];
+    Token* tokens[8];
     int token_count;
     uint8_t tea_key[16];
 } ToyPadEmu;
@@ -51,16 +54,6 @@ typedef struct {
     int payload_len;
 } Request;
 
-// Event structure
-
-typedef struct {
-    Frame frame;
-    int pad;
-    int index;
-    int dir;
-    int uid[7];
-} Event;
-
 extern FuriHalUsbInterface usb_hid_ldtoypad;
 
 // typedef enum {
@@ -84,17 +77,10 @@ void set_debug_text_ep_in(char* text);
 
 usbd_device* get_usb_device();
 
-// void ToyPadEmu_randomUID(unsigned char* uid);
-
 bool ToyPadEmu_remove(int index, int selectedBox);
 
 Token* createCharacter(int id);
-
-// void ToyPadEmu_place(Token token);
-
-void Event_init(Event* event);
-
-int Event_build(Event* event, unsigned char* buf);
+Token* createVehicle(int id, uint32_t upgrades[2]);
 
 int build_frame(Frame* frame, unsigned char* buf);
 
