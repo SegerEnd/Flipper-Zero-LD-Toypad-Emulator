@@ -115,27 +115,15 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
 
                         } else if(boxInfo[selectedBox].isFilled) {
                             // if the box is filled, we want to remove the minifigure from the selected box
-
-                            // get the index of the minifigure in the selected box
-                            int i = -1;
-
-                            // check if the selected box in boxInfo get the token index
-                            if(boxInfo[selectedBox].index >= 0) {
-                                i = boxInfo[selectedBox].index;
-
-                                if(ToyPadEmu_remove(i, selectedBox)) {
-                                    // set the box to not filled
-                                    boxInfo[selectedBox].isFilled = false;
-
-                                    // set debug text
-                                    set_debug_text("Removed minifigure from toypad");
-
-                                    consumed = true;
-                                }
+                            int i = boxInfo[selectedBox].index;
+                            if(i >= 0 && ToyPadEmu_remove(i, selectedBox)) {
+                                boxInfo[selectedBox].isFilled = false;
+                                boxInfo[selectedBox].index = -1; // Reset index
+                                set_debug_text("Removed minifigure from toypad");
+                                consumed = true;
                             }
                             return consumed;
                         }
-
                     } else if(event->type == InputTypeRelease) {
                         model->ok_pressed = false;
                     }
@@ -298,46 +286,45 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         int id = (int)model->selected_minifigure_index;
         model->selected_minifigure_index = 0;
 
-        unsigned char buffer[32];
-
-        memset(buffer, 0, sizeof(buffer));
-
-        if(id < 1) {
-            id = 1;
-        }
+        unsigned char buffer[32] = {0};
+        if(id < 1) id = 1;
 
         Token* character = createCharacter(id);
-
         boxInfo[selectedBox].isFilled = true;
-
         selectedBox_to_pad(character, selectedBox);
 
-        character->index = emulator->token_count;
-        emulator->tokens[character->index] = character;
-        emulator->token_count++; // Set the token count for a new character
+        // Find an empty slot or use the next available index
+        int new_index = -1;
+        for(int i = 0; i < MAX_TOKENS; i++) {
+            if(emulator->tokens[i] == NULL) {
+                new_index = i;
+                break;
+            }
+        }
+        if(new_index == -1 && emulator->token_count < MAX_TOKENS) {
+            new_index = emulator->token_count++;
+        } else if(new_index == -1) {
+            set_debug_text("Max tokens reached!");
+            free(character);
+            return; // No space available
+        }
 
-        boxInfo[selectedBox].index = character->index;
+        character->index = new_index;
+        emulator->tokens[new_index] = character;
+        boxInfo[selectedBox].index = new_index;
 
-        // set the data to the buffer
-        buffer[0] = 0x56; // magic number always 0x56
-        buffer[1] = 0x0b; // size always 0x0b (11)
+        // Send placement command
+        buffer[0] = 0x56;
+        buffer[1] = 0x0b;
         buffer[2] = character->pad;
-        buffer[3] = 0x00; // always 0
+        buffer[3] = 0x00;
         buffer[4] = character->index;
-        buffer[5] = 0x00; // tag placed / removed
-        buffer[6] = character->uid[0]; // first uid always 0x04
-        buffer[7] = character->uid[1];
-        buffer[8] = character->uid[2];
-        buffer[9] = character->uid[3];
-        buffer[10] = character->uid[4];
-        buffer[11] = character->uid[5];
-        buffer[12] = character->uid[6]; // last uid byte always 0x80
-        // generate the checksum
+        buffer[5] = 0x00; // Tag placed
+        memcpy(&buffer[6], character->uid, 7);
         buffer[13] = generate_checksum_for_command(buffer, 13);
 
         usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
 
-        // Give dolphin some xp for placing a minifigure
         dolphin_deed(DolphinDeedNfcReadSuccess);
     } else if(model->selected_vehicle_index > 0 && model->connected) {
         int id = (int)model->selected_vehicle_index;

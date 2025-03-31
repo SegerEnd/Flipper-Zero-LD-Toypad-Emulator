@@ -519,53 +519,27 @@ Token* createVehicle(int id, uint32_t upgrades[2]) {
 
 // Remove a token
 bool ToyPadEmu_remove(int index, int selectedBox) {
-    if(index < 0) return false;
-    if(emulator->tokens[index] == NULL) return false;
+    UNUSED(selectedBox);
+    if(index < 0 || index >= MAX_TOKENS || emulator->tokens[index] == NULL) {
+        return false; // Invalid index or already removed
+    }
 
-    // Send to the USB device that the token has been removed
-
-    // get the token from the emulator
-
-    Token* character = emulator->tokens[index];
-    if(character == NULL) return false;
-
-    unsigned char buffer[32];
-
-    memset(buffer, 0, sizeof(buffer));
-
-    selectedBox_to_pad(character, selectedBox);
-
-    // set the data to the buffer
-    buffer[0] = 0x56; // magic number always 0x56
-    buffer[1] = 0x0b; // size always 0x0b (11)
-    buffer[2] = character->pad;
-    buffer[3] = 0x00; // always 0
-    buffer[4] = character->index;
-    buffer[5] = 0x01; // tag placed / removed (0x00 = placed, 0x01 = removed)
-    buffer[6] = character->uid[0]; // first uid always 0x04
-    buffer[7] = character->uid[1];
-    buffer[8] = character->uid[2];
-    buffer[9] = character->uid[3];
-    buffer[10] = character->uid[4];
-    buffer[11] = character->uid[5];
-    buffer[12] = character->uid[6]; // last uid byte always 0x80
-    // generate the checksum
+    // Send removal command (assuming this is already implemented)
+    unsigned char buffer[32] = {0};
+    buffer[0] = 0x56; // Magic number
+    buffer[1] = 0x0b; // Size
+    buffer[2] = emulator->tokens[index]->pad; // Pad number
+    buffer[3] = 0x00;
+    buffer[4] = index; // Index of token to remove
+    buffer[5] = 0x01; // Tag removed (not placed)
+    memcpy(&buffer[6], emulator->tokens[index]->uid, 7); // UID
     buffer[13] = generate_checksum_for_command(buffer, 13);
 
-    usbd_ep_write(usb_dev, HID_EP_IN, buffer, sizeof(buffer));
+    usbd_ep_write(get_usb_device(), HID_EP_IN, buffer, sizeof(buffer));
 
-    // Free the memory of the token
-    emulator->tokens[index] = NULL;
-    free(character);
-
-    // free the token
+    // Free the token and clear the slot
     free(emulator->tokens[index]);
-    emulator->token_count--; // Decrement the token count
-
-    // shift the tokens relative to the removed token and pads order
-    for(int i = index; i < emulator->token_count; i++) {
-        emulator->tokens[i] = emulator->tokens[i + 1];
-    }
+    emulator->tokens[index] = NULL;
 
     return true;
 }

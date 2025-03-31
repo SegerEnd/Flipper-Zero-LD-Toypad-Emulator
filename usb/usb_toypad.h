@@ -11,6 +11,8 @@ extern "C" {
 #define HID_EP_IN  0x81
 #define HID_EP_OUT 0x01
 
+#define MAX_TOKENS 7
+
 typedef struct {
     unsigned char index;
     unsigned int id;
