@@ -1,5 +1,6 @@
 name: "FAP: Build for multiple SDK sources"
 # This will build your app for dev and release channels on GitHub. 
+
 # It will also build your app every day to make sure it's up to date with the latest SDK changes.
 # See https://github.com/marketplace/actions/build-flipper-application-package-fap for more information
 
@@ -26,7 +27,7 @@ jobs:
           - name: release channel
             sdk-channel: release
           # You can add unofficial channels here. See ufbt action docs for more info.
-    name: 'ufbt: Build for ${{ matrix.name }}'
+    name: "ufbt: Build for ${{ matrix.name }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v3

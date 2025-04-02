@@ -108,7 +108,7 @@ ViewDispatcher* get_view_dispatcher() {
 }
 
 /**
- * @brief      Allocate the ldtoypad application. Set up the views and resources.
+ * @brief      Allocate the ldtoypad application. Set up the views, resources and settings.
  * @details    This function allocates the ldtoypad application resources.
  * @return     LDToyPadApp object.
 */
@@ -131,12 +131,6 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     view_set_previous_callback(submenu_get_view(app->submenu), ldtoypad_navigation_exit_callback);
     view_dispatcher_add_view(app->view_dispatcher, ViewSubmenu, submenu_get_view(app->submenu));
     view_dispatcher_switch_to_view(app->view_dispatcher, ViewSubmenu);
-
-    // app->text_input = text_input_alloc();
-    // view_dispatcher_add_view(
-    //     app->view_dispatcher, ViewTextInput, text_input_get_view(app->text_input));
-    // app->temp_buffer_size = 32;
-    // app->temp_buffer = (char*)malloc(app->temp_buffer_size);
 
     app->variable_item_list_config = variable_item_list_alloc();
     variable_item_list_reset(app->variable_item_list_config);
@@ -165,12 +159,11 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     // setting 3 skip vehicle selection
     item = variable_item_list_add(
         app->variable_item_list_config,
-        "Skip vehicle selection / Only minifig mode",
+        "Skip vehicle selection / Minifig only mode",
         COUNT_OF(setting_bool_values),
         ldtoypad_setting_minifig_only_mode_change,
         app);
-    bool setting_minifig_only_mode =
-        true; // currently true because, vehicles aren't implemented yet. Little bit annoying to go through the double selection currently.
+    bool setting_minifig_only_mode = false;
     variable_item_set_current_value_index(item, setting_minifig_only_mode);
     variable_item_set_current_value_text(item, setting_no_yes[setting_minifig_only_mode]);
 
@@ -191,7 +184,6 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     model->show_icons_index = setting_show_icons_names_index;
     model->minifig_only_mode = setting_minifig_only_mode;
 
-    // view_dispatcher_add_view(app->view_dispatcher, ViewEmulate, app->view_game);
     view_dispatcher_add_view(
         app->view_dispatcher,
         ViewEmulate,
@@ -204,7 +196,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         0,
         128,
         64,
-        "This is a educational project to learn how to interact and reverse engineer a Toy Pad with a Flipper Zero.\n\nhttps://github.com/SegerEnd/Flipper-Zero-LD-Toypad-Emulator \n\nCredits: \n- Berny23 for the JavaScript Toy Pad Emulator for the Raspberry Pi\n- AlinaNova21 for the Node-LD project (Node.js Lego Dimensions Library)\n- woodenphone for the analysis of the Lego Dimensions Protocol");
+        "This is a educational project to learn how to interact and reverse engineer a Toy Pad with a Flipper Zero.\n\nhttps://github.com/SegerEnd/Flipper-Zero-LD-Toypad-Emulator \n\nCredits: \n- Berny23 for the JavaScript Toy Pad Emulator for the Raspberry Pi\n- AlinaNova21 for the Node-LD project (Node.js Lego Dimensions Library)\n- woodenphone for the analysis of the Lego Dimensions Protocol\n\nAuthor: SegerEnd");
     view_set_previous_callback(
         widget_get_view(app->widget_about), ldtoypad_navigation_submenu_callback);
 
@@ -289,14 +281,9 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, ViewVehicleSelection);
     submenu_free(app->submenu_vehicle_selection);
 
-    // view_dispatcher_free(app->view_dispatcher); // this is causing a crash
     furi_record_close(RECORD_GUI);
 
-    // app->gui = NULL;
     //app->notification = NULL;
-
-    // Remove whatever is left
-    // memzero(app, sizeof(LDToyPadApp));
 
     free(app);
 }

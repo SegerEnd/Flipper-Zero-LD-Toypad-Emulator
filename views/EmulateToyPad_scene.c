@@ -59,10 +59,7 @@ struct BoxInfo boxInfo[] = {
 
 struct LDToyPadSceneEmulate {
     View* view;
-    // LDToyPadSceneEmulateCallback callback;
-    // void* context;
 
-    // timer
     FuriTimer* timer; // Timer for redrawing the screen
 };
 
@@ -115,27 +112,15 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
 
                         } else if(boxInfo[selectedBox].isFilled) {
                             // if the box is filled, we want to remove the minifigure from the selected box
-
-                            // get the index of the minifigure in the selected box
-                            int i = -1;
-
-                            // check if the selected box in boxInfo get the token index
-                            if(boxInfo[selectedBox].index >= 0) {
-                                i = boxInfo[selectedBox].index;
-
-                                if(ToyPadEmu_remove(i, selectedBox)) {
-                                    // set the box to not filled
-                                    boxInfo[selectedBox].isFilled = false;
-
-                                    // set debug text
-                                    set_debug_text("Removed minifigure from toypad");
-
-                                    consumed = true;
-                                }
+                            int i = boxInfo[selectedBox].index;
+                            if(i >= 0 && ToyPadEmu_remove(i, selectedBox)) {
+                                boxInfo[selectedBox].isFilled = false;
+                                boxInfo[selectedBox].index = -1; // Reset index
+                                set_debug_text("Removed minifigure from toypad");
+                                consumed = true;
                             }
                             return consumed;
                         }
-
                     } else if(event->type == InputTypeRelease) {
                         model->ok_pressed = false;
                     }
@@ -294,97 +279,63 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    if(model->selected_minifigure_index > 0 && model->connected) {
-        int id = (int)model->selected_minifigure_index;
-        model->selected_minifigure_index = 0;
+    if((model->selected_minifigure_index > 0 || model->selected_vehicle_index > 0) &&
+       model->connected) {
+        int id = model->selected_minifigure_index > 0 ? model->selected_minifigure_index :
+                                                        model->selected_vehicle_index;
 
-        unsigned char buffer[32];
+        bool is_vehicle = (model->selected_vehicle_index > 0);
 
-        memset(buffer, 0, sizeof(buffer));
-
-        if(id < 1) {
-            id = 1;
+        if(is_vehicle) {
+            model->selected_vehicle_index = 0;
+        } else {
+            model->selected_minifigure_index = 0;
         }
 
-        Token* character = createCharacter(id);
+        unsigned char buffer[32] = {0};
+        if(!is_vehicle && id < 1) id = 1;
+        if(is_vehicle && id < 1000) id = 1000;
+
+        Token* token = is_vehicle ? createVehicle(id, (uint32_t[]){0, 0}) : createCharacter(id);
+        if(!token) return; // Handle allocation failure
 
         boxInfo[selectedBox].isFilled = true;
+        selectedBox_to_pad(token, selectedBox);
 
-        selectedBox_to_pad(character, selectedBox);
+        // Find an empty slot or use the next available index
+        int new_index = -1;
+        for(int i = 0; i < MAX_TOKENS; i++) {
+            if(emulator->tokens[i] == NULL) {
+                new_index = i;
+                break;
+            }
+        }
+        if(new_index == -1 && emulator->token_count < MAX_TOKENS) {
+            new_index = emulator->token_count++;
+        } else if(new_index == -1) {
+            set_debug_text("Max tokens reached!");
+            free(token);
+            return;
+        }
 
-        character->index = emulator->token_count;
-        emulator->tokens[character->index] = character;
-        emulator->token_count++; // Set the token count for a new character
+        token->index = new_index;
+        emulator->tokens[new_index] = token;
+        boxInfo[selectedBox].index = new_index;
 
-        boxInfo[selectedBox].index = character->index;
-
-        // set the data to the buffer
-        buffer[0] = 0x56; // magic number always 0x56
-        buffer[1] = 0x0b; // size always 0x0b (11)
-        buffer[2] = character->pad;
-        buffer[3] = 0x00; // always 0
-        buffer[4] = character->index;
-        buffer[5] = 0x00; // tag placed / removed
-        buffer[6] = character->uid[0]; // first uid always 0x04
-        buffer[7] = character->uid[1];
-        buffer[8] = character->uid[2];
-        buffer[9] = character->uid[3];
-        buffer[10] = character->uid[4];
-        buffer[11] = character->uid[5];
-        buffer[12] = character->uid[6]; // last uid byte always 0x80
-        // generate the checksum
+        // Send placement command
+        buffer[0] = 0x56;
+        buffer[1] = 0x0b;
+        buffer[2] = token->pad;
+        buffer[3] = 0x00;
+        buffer[4] = token->index;
+        buffer[5] = 0x00;
+        memcpy(&buffer[6], token->uid, 7);
         buffer[13] = generate_checksum_for_command(buffer, 13);
 
         usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
 
-        // Give dolphin some xp for placing a minifigure
+        // Give dolphin some xp for placing a minifigure, vehicle
         dolphin_deed(DolphinDeedNfcReadSuccess);
-    } else if(model->selected_vehicle_index > 0 && model->connected) {
-        int id = (int)model->selected_vehicle_index;
-        model->selected_vehicle_index = 0;
-
-        set_debug_text("Render vehicle");
-
-        unsigned char buffer[32];
-
-        memset(buffer, 0, sizeof(buffer));
-
-        if(id < 1000) {
-            id = 1000;
-        }
-
-        uint32_t upgrades[2] = {0xEFFFFFFF, 0xEFFFFFFF};
-
-        Token* vehicle = createVehicle(1030, upgrades);
-
-        boxInfo[selectedBox].isFilled = true;
-
-        selectedBox_to_pad(vehicle, selectedBox);
-
-        vehicle->index = emulator->token_count;
-        emulator->tokens[vehicle->index] = vehicle;
-        emulator->token_count++; // Set the token count for a new vehicle
-
-        boxInfo[selectedBox].index = vehicle->index;
-
-        // set the data to the buffer
-        buffer[0] = 0x56; // magic number always 0x56
-        buffer[1] = 0x0b; // size always 0x0b (11)
-        buffer[2] = vehicle->pad;
-        buffer[3] = 0x00; // always 0
-        buffer[4] = vehicle->index;
-        buffer[5] = 0x00; // tag placed / removed
-        buffer[6] = vehicle->uid[0]; // first uid always 0x04
-        buffer[7] = vehicle->uid[1];
-        buffer[8] = vehicle->uid[2];
-        buffer[9] = vehicle->uid[3];
-        buffer[10] = vehicle->uid[4];
-        buffer[11] = vehicle->uid[5];
-        buffer[12] = vehicle->uid[6]; // last uid byte always 0x80
-        // generate the checksum
-        buffer[13] = generate_checksum_for_command(buffer, 13);
-
-        usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
     }
 
     canvas_clear(canvas);
@@ -396,6 +347,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // Get position for the selected box
     uint8_t x = boxInfo[selectedBox].x;
     uint8_t y = boxInfo[selectedBox].y;
+
     // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
     if(selectedBox == 1) {
         canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
@@ -403,31 +355,55 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
     }
 
+    int token_selected = 0;
+
     // when the box is filled, draw the minifigure icon
     for(int i = 0; i < numBoxes; i++) {
         if(boxInfo[i].isFilled) {
-            Token* character = emulator->tokens[boxInfo[i].index];
+            Token* token = emulator->tokens[boxInfo[i].index];
             if(model->show_icons_index) {
                 // Draw the minifigure icon
                 canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_head);
             } else {
                 // Draw the first letter of the minifigure name
+                char letter[1] = {0};
 
-                // get the first letter of the minifigure name
-                char letter[1];
-                letter[0] = character->name[0];
+                // Find the first letter that is not '*' or space
+                for(char* p = token->name; *p; p++) {
+                    if(*p != '*' && *p != ' ') {
+                        letter[0] = *p; // Store the character
+                        break;
+                    }
+                }
 
                 canvas_draw_str(canvas, boxInfo[i].x + 6, boxInfo[i].y + 12, letter);
             }
 
             // Set the connection status text to the currently connected minifigure name
             if(selectedBox == i) {
-                model->connection_status = character->name;
+                model->connection_status = token->name;
+
+                if(token->id) {
+                    token_selected = 1;
+                } else {
+                    token_selected = 2; // vehicles dont have an id
+                }
             }
         }
     }
 
-    elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
+    if(token_selected == 1) {
+        canvas_draw_icon(canvas, 0, 0, &I_head);
+    } else if(token_selected == 2) {
+        canvas_draw_icon(canvas, 0, 0, &I_car);
+    }
+    if(token_selected) {
+        elements_multiline_text_aligned(
+            canvas, 15, 1, AlignLeft, AlignTop, model->connection_status);
+    } else {
+        elements_multiline_text_aligned(
+            canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
+    }
 
     if(model->show_debug_text_index) {
         // elements_button_left(canvas, "Prev");
@@ -576,7 +552,7 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     free(ldtoypad_emulate_view);
 
     // free all the tokens ( needs a better solution later )
-    for(int i = 0; i < 8; i++) {
+    for(int i = 0; i < MAX_TOKENS; i++) {
         if(emulator->tokens[i] != NULL) {
             free(emulator->tokens[i]);
         }
