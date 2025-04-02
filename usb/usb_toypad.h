@@ -20,7 +20,6 @@ typedef struct {
     unsigned char uid[7];
     uint8_t token[180];
     char name[16];
-    bool is_vehicle;
 } Token;
 
 typedef struct {
@@ -59,15 +58,7 @@ typedef struct {
 
 extern FuriHalUsbInterface usb_hid_ldtoypad;
 
-// typedef enum {
-//     HidDisconnected,
-//     HidConnected,
-//     HidRequest,
-// } HidEvent;
-
 int32_t hid_toypad_read_IN();
-// int32_t hid_toypad_read_OUT();
-// uint32_t hid_ldtoypad_usbinfo();
 
 char* get_debug_text_ep_in();
 char* get_debug_text_ep_out();
@@ -83,7 +74,7 @@ usbd_device* get_usb_device();
 bool ToyPadEmu_remove(int index, int selectedBox);
 
 Token* createCharacter(int id);
-// Token* createVehicle(int id, uint32_t upgrades[2]);
+
 Token* createVehicle(int id, uint32_t upgrades[2]);
 
 int build_frame(Frame* frame, unsigned char* buf);

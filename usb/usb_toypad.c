@@ -412,36 +412,11 @@ usbd_device* get_usb_device() {
 
 Burtle* burtle; // Define the Burtle object
 
-void ToyPadEmu_init(ToyPadEmu* emu) {
-    emu->token_count = 0;
-
-    // Set default TEA key
-    // uint8_t default_tea_key[16] = {
-    //     0x55,
-    //     0xFE,
-    //     0xF6,
-    //     0xB0,
-    //     0x62,
-    //     0xBF,
-    //     0x0B,
-    //     0x41,
-    //     0xC9,
-    //     0xB3,
-    //     0x7C,
-    //     0xB4,
-    //     0x97,
-    //     0x3E,
-    //     0x29,
-    //     0x7B};
-
-    // memcpy(emu->tea_key, default_tea_key, sizeof(emu->tea_key));
-}
-
 int get_token_count_of_specific_id(unsigned int id) {
     // Get the number of tokens with the same ID
     int count = 0;
 
-    for(int i = 0; i < 8; i++) {
+    for(int i = 0; i < MAX_TOKENS; i++) {
         if(emulator->tokens[i] != NULL) {
             if(emulator->tokens[i]->id == id) {
                 count++;
@@ -486,34 +461,6 @@ Token* createCharacter(int id) {
     return token; // Return the created token
 }
 
-// Token* createVehicle(int id, uint32_t upgrades[2]) {
-//     Token* token = malloc(sizeof(Token));
-
-//     if(id < 1000) {
-//         id = 1000;
-//     }
-
-//     memset(token->token, 0, sizeof(token->token));
-
-//     token->id = id;
-//     token->is_vehicle = true; // Mark as a vehicle
-
-//     create_uid(token, id);
-
-//     uint32_t upgrade0 = (uint32_t)upgrades[0];
-//     uint16_t v_id = (uint16_t)id;
-//     uint32_t upgrade1 = (uint32_t)upgrades[1];
-
-//     memcpy(token->token + (0x23 * 4), &upgrade0, sizeof(uint32_t));
-//     memcpy(token->token + (0x24 * 4), &v_id, sizeof(uint16_t));
-//     memcpy(token->token + (0x25 * 4), &upgrade1, sizeof(uint32_t));
-//     uint16_t value = (uint16_t)1;
-//     memcpy(token->token + (0x26 * 4), &value, sizeof(uint16_t));
-
-//     snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
-//     return token;
-// }
-
 // Helper to write a 32-bit little-endian value, no offset
 void writeUInt32LE_NO(uint8_t* buffer, uint32_t value) {
     buffer[0] = (value >> 0) & 0xFF;
@@ -551,6 +498,8 @@ Token* createVehicle(int id, uint32_t upgrades[2]) {
     writeUInt16LE_NO(&token->token[0x24 * 4], id); // ID
     writeUInt32LE_NO(&token->token[0x25 * 4], upgrades[1]); // Upgrades[1]
     writeUInt16BE_NO(&token->token[0x26 * 4], 1); // Constant value 1 (Big Endian)
+
+    snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
 
     return token;
 }
@@ -685,10 +634,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // Make from the data a string and save it to the debug_text_ep_out string
     sprintf(debug_text_ep_out, "%s", req_buf);
 
-    // char hexValues[HID_EP_SZ];
-    // hexArrayToString(req_buf, sizeof(hexValues), hexValues, HID_EP_SZ);
-    // sprintf(debug_text_ep_out, "%s", hexValues);
-
     if(len <= 0) return;
 
     Frame frame;
@@ -705,11 +650,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     // parse request
     parse_request(&request, &frame);
 
-    // request.cmd = frame.payload[0];
-    // request.cid = frame.payload[1];
-    // request.payload_len = frame.len - 2;
-    // memcpy(request.payload, frame.payload + 2, request.payload_len);
-
     Response response;
     memset(&response, 0, sizeof(Response));
 
@@ -724,7 +664,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         // handle_cmd_wake(req + 1, res, &res_size);
         sprintf(debug_text, "CMD_WAKE");
 
-        ToyPadEmu_init(emulator); // Initialize the emulator / setup tea key
+        emulator->token_count = 0;
 
         uint8_t default_tea_key[16] = {
             0x55,
@@ -754,20 +694,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         response.payload_len = sizeof(wake_payload_2);
 
-        // usbd_ep_write(dev, HID_EP_IN, wake_payload_2, sizeof(wake_payload_2));
-
-        // I don't know why this is, but it seems to work. Found it in a log file of https://github.com/woodenphone/lego_dimensions_protocol/blob/master/logs/USB%20capture%20snippet.txt#L31
-        // unsigned char wake_payload[HID_EP_SZ] = {0x55, 0x19, 0x01, 0x00, 0x2f, 0x02, 0x01, 0x02,
-        //                                          0x02, 0x04, 0x02, 0xf5, 0x00, 0x19, 0x8b, 0x54,
-        //                                          0x4d, 0xb4, 0xcd, 0xae, 0x45, 0x24, 0x80, 0x0e,
-        //                                          0x00, 0xf0, 0x25, 0x20, 0x00, 0x00, 0x00, 0x00};
-
-        // usbd_ep_write(dev, HID_EP_IN, wake_payload, sizeof(wake_payload));
-
         connected_status = 2; // connected / reconnected
 
         break;
-    case CMD_READ: // Seems to be only executed one time per placed token (minifig / vehicle) when the game has begun, otherwise it will skip directly to CMD_MODEL
+    case CMD_READ:
         sprintf(debug_text, "CMD_READ");
 
         int ind = request.payload[0];
@@ -784,7 +714,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         sprintf(debug_text_ep_in, "Search token?");
 
         // Find the token that matches the ind
-        for(int i = 0; i < 8; i++) {
+        for(int i = 0; i < MAX_TOKENS; i++) {
             if(emulator->tokens[i] != NULL) {
                 // Process the token
                 if(emulator->tokens[i]->index == ind) {
@@ -814,7 +744,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         unsigned char buf[8] = {0};
         writeUInt32BE(buf, conf, 4);
         token = NULL;
-        for(int i = 0; i < 8; i++) {
+        for(int i = 0; i < MAX_TOKENS; i++) {
             if(emulator->tokens[i] != NULL && emulator->tokens[i]->index == index) {
                 token = emulator->tokens[i];
                 break;
@@ -823,13 +753,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         memset(response.payload, 0, sizeof(response.payload)); // Clear payload for consistency
         if(token) {
             if(token->id) {
-                response.payload[0] = 0x00; // Prefix for minifigures
-                writeUInt32LE(buf, token->id); // Character ID in little-endian
-                tea_encrypt(
-                    buf,
-                    emulator->tea_key,
-                    response.payload + 1); // Encrypt into response.payload + 1
-                response.payload_len = 9; // 1 byte (0x00) + 8 encrypted bytes
+                response.payload[0] = 0x00;
+                writeUInt32LE(buf, token->id);
+                tea_encrypt(buf, emulator->tea_key, response.payload + 1);
+                response.payload_len = 9;
             } else {
                 response.payload[0] = 0xF9;
                 response.payload_len = 1;
@@ -862,25 +789,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         break;
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
-        index = request.payload[0];
-        page = request.payload[1];
-        token = NULL;
-        for(int i = 0; i < 8; i++) {
-            if(emulator->tokens[i] != NULL && emulator->tokens[i]->index == index) {
-                token = emulator->tokens[i];
-                break;
-            }
-        }
-        if(token) {
-            int start = page * 4;
-            // Assuming payload[2] onward contains 16 bytes of data
-            memcpy(token->token + start, request.payload + 2, 16);
-            response.payload[0] = 0; // Success
-            response.payload_len = 1;
-        } else {
-            response.payload[0] = 1; // Error
-            response.payload_len = 1;
-        }
+
         break;
     case CMD_CHAL:
         sprintf(debug_text, "CMD_CHAL");
@@ -994,12 +903,6 @@ static usbd_respond hid_ep_config(usbd_device* dev, uint8_t cfg) {
         usbd_reg_endpoint(dev, HID_EP_IN, hid_in_callback);
         usbd_ep_config(dev, HID_EP_OUT, USB_EPTYPE_INTERRUPT, HID_EP_SZ);
         usbd_reg_endpoint(dev, HID_EP_OUT, hid_out_callback);
-        // usbd_ep_write(dev, HID_EP_IN, 0, 0);
-        // int8_t initPacket[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-        //                          0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-        //                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        // usbd_ep_write(usb_dev, HID_EP_OUT, initPacket, sizeof(initPacket));
-        // usbd_ep_write(usb_dev, HID_EP_IN, initPacket, sizeof(initPacket));
         boot_protocol = false; /* BIOS will SET_PROTOCOL if it wants this */
         return usbd_ack;
     default:

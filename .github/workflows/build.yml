@@ -1,17 +1,17 @@
 name: "FAP: Build & Publish to releases"
-# This will build your app for dev and release channels on GitHub. 
+# This will build your app for dev and release channels on GitHub.
 # It will also build your app every day to make sure it's up to date with the latest SDK changes.
 # See https://github.com/marketplace/actions/build-flipper-application-package-fap for more information
 
 on:
   push:
     ## put your main branch name under "braches"
-    branches: 
-      - master 
+    branches:
+      - master
   pull_request:
-  #schedule: 
-    # do a build every day
-    #- cron: "1 1 * * *"
+  #schedule:
+  # do a build every day
+  #- cron: "1 1 * * *"
 
 jobs:
   ufbt-build:
@@ -24,7 +24,7 @@ jobs:
           - name: release channel
             sdk-channel: release
           # You can add unofficial channels here. See ufbt action docs for more info.
-    name: 'ufbt: Build for ${{ matrix.name }}'
+    name: "ufbt: Build for ${{ matrix.name }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
@@ -41,45 +41,3 @@ jobs:
           # See ufbt action docs for other output variables
           name: ${{ github.event.repository.name }}-${{ steps.build-app.outputs.suffix }}
           path: ${{ steps.build-app.outputs.fap-artifacts }}
-  release:
-    needs: ufbt-build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      # - name: Download dev artifacts
-      #   uses: actions/download-artifact@v4.1.8
-      #   with:
-      #     name: ${{ github.event.repository.name }}-dev
-      #     path: ./artifacts/dev
-
-      - name: Download release artifacts
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: ${{ github.event.repository.name }}-release
-          path: ./artifacts/release
-
-      - name: Extract .zip release artifacts
-        run: |
-          mkdir -p ./extracted/release
-          unzip './artifacts/release/*.zip' -d ./extracted/release
-
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1.14.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          releaseName: Release ${{ github.ref_name }}
-          body: |
-            ### Release Information
-            This is an automated downloadable release of the application. Made by the GitHub Actions.
-            This release includes a .FAP files for the Flipper Zero.
-
-            ### Files
-            The following files are attached to this release for download:
-            - Release version, From the official Flipper Zero Release update channel.
-          artifacts: |
-            ./extracted/release/*.fap
-          draft: true
-          prerelease: false

@@ -59,10 +59,7 @@ struct BoxInfo boxInfo[] = {
 
 struct LDToyPadSceneEmulate {
     View* view;
-    // LDToyPadSceneEmulateCallback callback;
-    // void* context;
 
-    // timer
     FuriTimer* timer; // Timer for redrawing the screen
 };
 
@@ -286,11 +283,11 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
        model->connected) {
         int id = model->selected_minifigure_index > 0 ? model->selected_minifigure_index :
                                                         model->selected_vehicle_index;
+
         bool is_vehicle = (model->selected_vehicle_index > 0);
 
         if(is_vehicle) {
             model->selected_vehicle_index = 0;
-            set_debug_text("Render vehicle");
         } else {
             model->selected_minifigure_index = 0;
         }
@@ -350,6 +347,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // Get position for the selected box
     uint8_t x = boxInfo[selectedBox].x;
     uint8_t y = boxInfo[selectedBox].y;
+
     // Check if the selectedBox is 1 (circle) and draw the circle, This is hardcoded for now.
     if(selectedBox == 1) {
         canvas_draw_xbm(canvas, x, y, 22, 17, I_selectionCircle); // Draw highlighted circle
@@ -357,31 +355,55 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         canvas_draw_xbm(canvas, x, y, 18, 18, I_selectionBox); // Draw highlighted box
     }
 
+    int token_selected = 0;
+
     // when the box is filled, draw the minifigure icon
     for(int i = 0; i < numBoxes; i++) {
         if(boxInfo[i].isFilled) {
-            Token* character = emulator->tokens[boxInfo[i].index];
+            Token* token = emulator->tokens[boxInfo[i].index];
             if(model->show_icons_index) {
                 // Draw the minifigure icon
                 canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_head);
             } else {
                 // Draw the first letter of the minifigure name
+                char letter[1] = {0};
 
-                // get the first letter of the minifigure name
-                char letter[1];
-                letter[0] = character->name[0];
+                // Find the first letter that is not '*' or space
+                for(char* p = token->name; *p; p++) {
+                    if(*p != '*' && *p != ' ') {
+                        letter[0] = *p; // Store the character
+                        break;
+                    }
+                }
 
                 canvas_draw_str(canvas, boxInfo[i].x + 6, boxInfo[i].y + 12, letter);
             }
 
             // Set the connection status text to the currently connected minifigure name
             if(selectedBox == i) {
-                model->connection_status = character->name;
+                model->connection_status = token->name;
+
+                if(token->id) {
+                    token_selected = 1;
+                } else {
+                    token_selected = 2; // vehicles dont have an id
+                }
             }
         }
     }
 
-    elements_multiline_text_aligned(canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
+    if(token_selected == 1) {
+        canvas_draw_icon(canvas, 0, 0, &I_head);
+    } else if(token_selected == 2) {
+        canvas_draw_icon(canvas, 0, 0, &I_car);
+    }
+    if(token_selected) {
+        elements_multiline_text_aligned(
+            canvas, 15, 1, AlignLeft, AlignTop, model->connection_status);
+    } else {
+        elements_multiline_text_aligned(
+            canvas, 1, 1, AlignLeft, AlignTop, model->connection_status);
+    }
 
     if(model->show_debug_text_index) {
         // elements_button_left(canvas, "Prev");
@@ -530,7 +552,7 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
     free(ldtoypad_emulate_view);
 
     // free all the tokens ( needs a better solution later )
-    for(int i = 0; i < 8; i++) {
+    for(int i = 0; i < MAX_TOKENS; i++) {
         if(emulator->tokens[i] != NULL) {
             free(emulator->tokens[i]);
         }

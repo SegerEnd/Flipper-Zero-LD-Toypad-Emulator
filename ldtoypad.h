@@ -20,12 +20,6 @@ extern "C" {
 #include <gui/modules/text_input.h>
 #include <gui/modules/variable_item_list.h>
 
-// Include the used views
-// #include <gui/modules/submenu.h>
-// #include <gui/modules/dialog_ex.h>
-// #include "views/EmulateToyPad.h"
-// #include "views/Settings.h"
-
 #include "views/EmulateToyPad_scene.h"
 
 typedef struct {

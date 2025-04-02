@@ -29,7 +29,6 @@ typedef struct {
     bool back_pressed;
     bool connected;
     char* connection_status;
-    // bool minifigure_submenu;
 
     uint32_t selected_minifigure_index;
     uint32_t selected_vehicle_index;
