@@ -18,8 +18,9 @@ typedef struct {
     unsigned int id;
     unsigned int pad;
     unsigned char uid[7];
-    unsigned char token[180];
+    uint8_t token[180];
     char name[16];
+    bool is_vehicle;
 } Token;
 
 typedef struct {
@@ -82,6 +83,7 @@ usbd_device* get_usb_device();
 bool ToyPadEmu_remove(int index, int selectedBox);
 
 Token* createCharacter(int id);
+// Token* createVehicle(int id, uint32_t upgrades[2]);
 Token* createVehicle(int id, uint32_t upgrades[2]);
 
 int build_frame(Frame* frame, unsigned char* buf);

@@ -329,48 +329,28 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     } else if(model->selected_vehicle_index > 0 && model->connected) {
         int id = (int)model->selected_vehicle_index;
         model->selected_vehicle_index = 0;
-
         set_debug_text("Render vehicle");
-
         unsigned char buffer[32];
-
         memset(buffer, 0, sizeof(buffer));
-
         if(id < 1000) {
             id = 1000;
         }
-
-        uint32_t upgrades[2] = {0xEFFFFFFF, 0xEFFFFFFF};
-
-        Token* vehicle = createVehicle(1030, upgrades);
-
+        uint32_t upgrades[2] = {0, 0};
+        Token* vehicle = createVehicle(id, upgrades); // Use `id` instead of 1030
         boxInfo[selectedBox].isFilled = true;
-
         selectedBox_to_pad(vehicle, selectedBox);
-
         vehicle->index = emulator->token_count;
         emulator->tokens[vehicle->index] = vehicle;
-        emulator->token_count++; // Set the token count for a new vehicle
-
+        emulator->token_count++;
         boxInfo[selectedBox].index = vehicle->index;
-
-        // set the data to the buffer
-        buffer[0] = 0x56; // magic number always 0x56
-        buffer[1] = 0x0b; // size always 0x0b (11)
+        buffer[0] = 0x56;
+        buffer[1] = 0x0b;
         buffer[2] = vehicle->pad;
-        buffer[3] = 0x00; // always 0
+        buffer[3] = 0x00;
         buffer[4] = vehicle->index;
-        buffer[5] = 0x00; // tag placed / removed
-        buffer[6] = vehicle->uid[0]; // first uid always 0x04
-        buffer[7] = vehicle->uid[1];
-        buffer[8] = vehicle->uid[2];
-        buffer[9] = vehicle->uid[3];
-        buffer[10] = vehicle->uid[4];
-        buffer[11] = vehicle->uid[5];
-        buffer[12] = vehicle->uid[6]; // last uid byte always 0x80
-        // generate the checksum
+        buffer[5] = 0x00;
+        memcpy(&buffer[6], vehicle->uid, 7);
         buffer[13] = generate_checksum_for_command(buffer, 13);
-
         usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
     }
 

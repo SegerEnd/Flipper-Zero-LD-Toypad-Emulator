@@ -477,6 +477,7 @@ Token* createCharacter(int id) {
     memset(token->token, 0, sizeof(token->token));
 
     token->id = id; // Set the ID
+    token->is_vehicle = false; // Mark as a character
 
     create_uid(token, id); // Create the UID
 
@@ -486,33 +487,71 @@ Token* createCharacter(int id) {
     return token; // Return the created token
 }
 
-Token* createVehicle(int id, uint32_t upgrades[2]) {
-    Token* token = malloc(sizeof(Token)); // Allocate memory for the token
+// Token* createVehicle(int id, uint32_t upgrades[2]) {
+//     Token* token = malloc(sizeof(Token));
 
-    if(id < 1000) {
-        id = 1000;
+//     if(id < 1000) {
+//         id = 1000;
+//     }
+
+//     memset(token->token, 0, sizeof(token->token));
+
+//     token->id = id;
+//     token->is_vehicle = true; // Mark as a vehicle
+
+//     create_uid(token, id);
+
+//     uint32_t upgrade0 = (uint32_t)upgrades[0];
+//     uint16_t v_id = (uint16_t)id;
+//     uint32_t upgrade1 = (uint32_t)upgrades[1];
+
+//     memcpy(token->token + (0x23 * 4), &upgrade0, sizeof(uint32_t));
+//     memcpy(token->token + (0x24 * 4), &v_id, sizeof(uint16_t));
+//     memcpy(token->token + (0x25 * 4), &upgrade1, sizeof(uint32_t));
+//     uint16_t value = (uint16_t)1;
+//     memcpy(token->token + (0x26 * 4), &value, sizeof(uint16_t));
+
+//     snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
+//     return token;
+// }
+
+// Helper to write a 32-bit little-endian value, no offset
+void writeUInt32LE_NO(uint8_t* buffer, uint32_t value) {
+    buffer[0] = (value >> 0) & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+    buffer[2] = (value >> 16) & 0xFF;
+    buffer[3] = (value >> 24) & 0xFF;
+}
+
+// Helper to write a 16-bit little-endian value, no offset
+void writeUInt16LE_NO(uint8_t* buffer, uint16_t value) {
+    buffer[0] = (value >> 0) & 0xFF;
+    buffer[1] = (value >> 8) & 0xFF;
+}
+
+// Helper to write a 16-bit big-endian value, no offset
+void writeUInt16BE_NO(uint8_t* buffer, uint16_t value) {
+    buffer[0] = (value >> 8) & 0xFF;
+    buffer[1] = (value >> 0) & 0xFF;
+}
+
+Token* createVehicle(int id, uint32_t upgrades[2]) {
+    Token* token = (Token*)malloc(sizeof(Token));
+    if(!token) {
+        return NULL;
     }
 
-    upgrades = upgrades ? upgrades : (uint32_t[2]){0, 0};
+    // Initialize the token data to zero
+    memset(token, 0, sizeof(Token));
 
-    memset(token->token, 0, sizeof(token->token));
+    // Generate a random UID and store it
+    create_uid(token, id);
 
-    // token->id = id; // Set the ID
-
-    create_uid(token, id); // Create the UID
-
-    // Write upgrades and id into the token array
-    uint32_t upgrade0 = (uint32_t)upgrades[0];
-    uint16_t v_id = (uint16_t)id;
-    uint32_t upgrade1 = (uint32_t)upgrades[1];
-    memcpy(token->token + (0x23 * 4), &upgrade0, sizeof(uint32_t)); // Upgrade[0]
-    memcpy(token->token + (0x24 * 4), &v_id, sizeof(uint16_t)); // ID
-    memcpy(token->token + (0x25 * 4), &upgrade1, sizeof(uint32_t)); // Upgrade[1]
-    uint16_t value = (uint16_t)1;
-    memcpy(token->token + (0x26 * 4), &value, sizeof(uint16_t));
-
-    // convert the name to a string
-    snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
+    // Write the upgrades and ID to the token data
+    writeUInt32LE_NO(&token->token[0x23 * 4], upgrades[0]); // Upgrades[0]
+    writeUInt16LE_NO(&token->token[0x24 * 4], id); // ID
+    writeUInt32LE_NO(&token->token[0x25 * 4], upgrades[1]); // Upgrades[1]
+    writeUInt16BE_NO(&token->token[0x26 * 4], 1); // Constant value 1 (Big Endian)
 
     return token;
 }
@@ -770,49 +809,41 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         if(!strstr(debug_text, "CMD_MODEL")) {
             snprintf(debug_text + strlen(debug_text), sizeof(debug_text), " CMD_MODEL");
         }
-
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
-
         int index = request.payload[0];
         conf = readUInt32BE(request.payload, 4);
-
-        // create a buf with 8 bytes
         unsigned char buf[8] = {0};
         writeUInt32BE(buf, conf, 4);
-
-        // find the token with the index
         token = NULL;
         for(int i = 0; i < 8; i++) {
-            if(emulator->tokens[i] != NULL) {
-                // Process the token
-                if(emulator->tokens[i]->index == index) {
-                    token = emulator->tokens[i];
-                    break;
-                }
+            if(emulator->tokens[i] != NULL && emulator->tokens[i]->index == index) {
+                token = emulator->tokens[i];
+                break;
             }
         }
-        memset(response.payload, 0, sizeof(response.payload));
-
+        memset(response.payload, 0, sizeof(response.payload)); // Clear payload for consistency
         if(token) {
-            if(token->id) {
-                writeUInt32LE(buf, token->id);
-                sprintf(debug_text_ep_in, "Found a model ID");
+            if(token->is_vehicle) {
+                response.payload[0] = 0xF9; // Vehicle indicator
+                unsigned char zero_buf[8] = {0}; // Buffer of 8 zeros
+                tea_encrypt(zero_buf, emulator->tea_key, response.payload + 1);
+                response.payload_len = 9; // 1 byte (0xF9) + 8 encrypted bytes
+                sprintf(debug_text_ep_in, "Vehicle model");
             } else {
-                response.payload[0] = 0xF9;
-                sprintf(debug_text_ep_in, "Found a model token not ID");
+                response.payload[0] = 0x00; // Prefix for minifigures
+                writeUInt32LE(buf, token->id); // Character ID in little-endian
+                tea_encrypt(
+                    buf,
+                    emulator->tea_key,
+                    response.payload + 1); // Encrypt into response.payload + 1
+                response.payload_len = 9; // 1 byte (0x00) + 8 encrypted bytes
+                sprintf(debug_text_ep_in, "Character model ID");
             }
         } else {
-            response.payload[0] = 0xF2;
+            response.payload[0] = 0xF2; // No token found
+            response.payload_len = 1;
             sprintf(debug_text_ep_in, "No model token found");
         }
-
-        // encrypt the buf with the TEA
-        tea_encrypt(buf, emulator->tea_key, response.payload + 1);
-
-        // copy the buf to the response payload
-        // memcpy(response.payload + 1, buf, 8);
-
-        response.payload_len = 9;
         break;
     case CMD_SEED:
         sprintf(debug_text, "CMD_SEED");
@@ -837,7 +868,25 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         break;
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
-
+        index = request.payload[0];
+        page = request.payload[1];
+        token = NULL;
+        for(int i = 0; i < 8; i++) {
+            if(emulator->tokens[i] != NULL && emulator->tokens[i]->index == index) {
+                token = emulator->tokens[i];
+                break;
+            }
+        }
+        if(token) {
+            int start = page * 4;
+            // Assuming payload[2] onward contains 16 bytes of data
+            memcpy(token->token + start, request.payload + 2, 16);
+            response.payload[0] = 0; // Success
+            response.payload_len = 1;
+        } else {
+            response.payload[0] = 1; // Error
+            response.payload_len = 1;
+        }
         break;
     case CMD_CHAL:
         sprintf(debug_text, "CMD_CHAL");
@@ -1014,8 +1063,3 @@ static usbd_respond hid_control(usbd_device* dev, usbd_ctlreq* req, usbd_rqc_cal
     }
     return usbd_fail;
 }
-
-//         int8_t data[32] = {0x55, 0x0f, 0xb0, 0x01, 0x28, 0x63, 0x29, 0x20, 0x4c, 0x45, 0x47,
-//                            0x4f, 0x20, 0x32, 0x30, 0x31, 0x34, 0xf7, 0x00, 0x00, 0x00, 0x00,
-//                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-//         int32_t length = usbd_ep_write(usb_dev, HID_EP_IN, data, sizeof(data));
