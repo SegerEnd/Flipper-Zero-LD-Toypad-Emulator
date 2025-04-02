@@ -282,16 +282,28 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    if(model->selected_minifigure_index > 0 && model->connected) {
-        int id = (int)model->selected_minifigure_index;
-        model->selected_minifigure_index = 0;
+    if((model->selected_minifigure_index > 0 || model->selected_vehicle_index > 0) &&
+       model->connected) {
+        int id = model->selected_minifigure_index > 0 ? model->selected_minifigure_index :
+                                                        model->selected_vehicle_index;
+        bool is_vehicle = (model->selected_vehicle_index > 0);
+
+        if(is_vehicle) {
+            model->selected_vehicle_index = 0;
+            set_debug_text("Render vehicle");
+        } else {
+            model->selected_minifigure_index = 0;
+        }
 
         unsigned char buffer[32] = {0};
-        if(id < 1) id = 1;
+        if(!is_vehicle && id < 1) id = 1;
+        if(is_vehicle && id < 1000) id = 1000;
 
-        Token* character = createCharacter(id);
+        Token* token = is_vehicle ? createVehicle(id, (uint32_t[]){0, 0}) : createCharacter(id);
+        if(!token) return; // Handle allocation failure
+
         boxInfo[selectedBox].isFilled = true;
-        selectedBox_to_pad(character, selectedBox);
+        selectedBox_to_pad(token, selectedBox);
 
         // Find an empty slot or use the next available index
         int new_index = -1;
@@ -305,53 +317,28 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
             new_index = emulator->token_count++;
         } else if(new_index == -1) {
             set_debug_text("Max tokens reached!");
-            free(character);
-            return; // No space available
+            free(token);
+            return;
         }
 
-        character->index = new_index;
-        emulator->tokens[new_index] = character;
+        token->index = new_index;
+        emulator->tokens[new_index] = token;
         boxInfo[selectedBox].index = new_index;
 
         // Send placement command
         buffer[0] = 0x56;
         buffer[1] = 0x0b;
-        buffer[2] = character->pad;
+        buffer[2] = token->pad;
         buffer[3] = 0x00;
-        buffer[4] = character->index;
-        buffer[5] = 0x00; // Tag placed
-        memcpy(&buffer[6], character->uid, 7);
-        buffer[13] = generate_checksum_for_command(buffer, 13);
-
-        usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
-
-        dolphin_deed(DolphinDeedNfcReadSuccess);
-    } else if(model->selected_vehicle_index > 0 && model->connected) {
-        int id = (int)model->selected_vehicle_index;
-        model->selected_vehicle_index = 0;
-        set_debug_text("Render vehicle");
-        unsigned char buffer[32];
-        memset(buffer, 0, sizeof(buffer));
-        if(id < 1000) {
-            id = 1000;
-        }
-        uint32_t upgrades[2] = {0, 0};
-        Token* vehicle = createVehicle(id, upgrades); // Use `id` instead of 1030
-        boxInfo[selectedBox].isFilled = true;
-        selectedBox_to_pad(vehicle, selectedBox);
-        vehicle->index = emulator->token_count;
-        emulator->tokens[vehicle->index] = vehicle;
-        emulator->token_count++;
-        boxInfo[selectedBox].index = vehicle->index;
-        buffer[0] = 0x56;
-        buffer[1] = 0x0b;
-        buffer[2] = vehicle->pad;
-        buffer[3] = 0x00;
-        buffer[4] = vehicle->index;
+        buffer[4] = token->index;
         buffer[5] = 0x00;
-        memcpy(&buffer[6], vehicle->uid, 7);
+        memcpy(&buffer[6], token->uid, 7);
         buffer[13] = generate_checksum_for_command(buffer, 13);
+
         usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
+
+        // Give dolphin some xp for placing a minifigure, vehicle
+        dolphin_deed(DolphinDeedNfcReadSuccess);
     }
 
     canvas_clear(canvas);

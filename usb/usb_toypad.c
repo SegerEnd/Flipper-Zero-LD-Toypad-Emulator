@@ -477,7 +477,6 @@ Token* createCharacter(int id) {
     memset(token->token, 0, sizeof(token->token));
 
     token->id = id; // Set the ID
-    token->is_vehicle = false; // Mark as a character
 
     create_uid(token, id); // Create the UID
 
@@ -823,13 +822,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         }
         memset(response.payload, 0, sizeof(response.payload)); // Clear payload for consistency
         if(token) {
-            if(token->is_vehicle) {
-                response.payload[0] = 0xF9; // Vehicle indicator
-                unsigned char zero_buf[8] = {0}; // Buffer of 8 zeros
-                tea_encrypt(zero_buf, emulator->tea_key, response.payload + 1);
-                response.payload_len = 9; // 1 byte (0xF9) + 8 encrypted bytes
-                sprintf(debug_text_ep_in, "Vehicle model");
-            } else {
+            if(token->id) {
                 response.payload[0] = 0x00; // Prefix for minifigures
                 writeUInt32LE(buf, token->id); // Character ID in little-endian
                 tea_encrypt(
@@ -837,12 +830,13 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
                     emulator->tea_key,
                     response.payload + 1); // Encrypt into response.payload + 1
                 response.payload_len = 9; // 1 byte (0x00) + 8 encrypted bytes
-                sprintf(debug_text_ep_in, "Character model ID");
+            } else {
+                response.payload[0] = 0xF9;
+                response.payload_len = 1;
             }
         } else {
-            response.payload[0] = 0xF2; // No token found
+            response.payload[0] = 0xF2;
             response.payload_len = 1;
-            sprintf(debug_text_ep_in, "No model token found");
         }
         break;
     case CMD_SEED:
