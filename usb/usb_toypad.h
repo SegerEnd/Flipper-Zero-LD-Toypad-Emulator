@@ -13,6 +13,9 @@ extern "C" {
 
 #define MAX_TOKENS 7
 
+#define FRAME_TYPE_RESPONSE 0x55
+#define FRAME_TYPE_REQUEST  0x56
+
 typedef struct {
     unsigned char index;
     unsigned int id;
@@ -23,7 +26,7 @@ typedef struct {
 } Token;
 
 typedef struct {
-    Token* tokens[8];
+    Token* tokens[MAX_TOKENS];
     int token_count;
     uint8_t tea_key[16];
 } ToyPadEmu;
@@ -34,7 +37,6 @@ typedef struct {
     unsigned char type;
     unsigned char len;
     unsigned char payload[HID_EP_SZ - 2];
-    unsigned char chksum;
 } Frame;
 
 // Define a Response structure
@@ -43,8 +45,6 @@ typedef struct {
     unsigned char cid;
     unsigned char payload[HID_EP_SZ];
     int payload_len;
-    // int _cancel;
-    // int _preventDefault;
 } Response;
 
 // Define a Request structure
@@ -71,7 +71,7 @@ void set_debug_text_ep_in(char* text);
 
 usbd_device* get_usb_device();
 
-bool ToyPadEmu_remove(int index, int selectedBox);
+bool ToyPadEmu_remove(int index);
 
 Token* createCharacter(int id);
 
@@ -83,8 +83,6 @@ int build_response(Response* response, unsigned char* buf);
 
 int get_connected_status();
 void set_connected_status(int status);
-
-void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize);
 
 #ifdef __cplusplus
 }

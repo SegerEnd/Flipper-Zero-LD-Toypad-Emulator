@@ -8,6 +8,8 @@
 
 #include "../usb/usb_toypad.h"
 
+#include "sub_screens.h"
+
 typedef struct LDToyPadSceneEmulate LDToyPadSceneEmulate;
 
 LDToyPadSceneEmulate* ldtoypad_scene_emulate_alloc();
@@ -41,8 +43,8 @@ typedef struct {
     bool minifig_only_mode;
 
     // Inner-screens / pseudo-screens
-    bool show_screen_minfig_vehicle;
-    bool screen_minfig_vehicle_minfig_box_selected;
+    bool show_placement_selection_screen;
+    SelectionType sub_screen_box_selected;
 } LDToyPadSceneEmulateModel;
 
 void minifigures_submenu_callback(void* context, uint32_t index);

@@ -1,7 +1,6 @@
 #include "EmulateToyPad_scene.h"
 
 #include "../ldtoypad.h"
-#include "sub_screens.h"
 
 #include <furi.h>
 #include <furi_hal.h>
@@ -72,27 +71,24 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
 
     bool consumed = false;
 
+    static const Views submenu_selection_views[] = {
+        ViewMinifigureSelection, ViewVehicleSelection, ViewFavoritesSelection, ViewSavedSelection};
+
     with_view_model(
         instance->view,
         LDToyPadSceneEmulateModel * model,
         {
-            if(model->show_screen_minfig_vehicle) {
-                if(event->type == InputTypePress) {
-                    if(event->key == InputKeyLeft || event->key == InputKeyRight) {
-                        model->screen_minfig_vehicle_minfig_box_selected =
-                            !model->screen_minfig_vehicle_minfig_box_selected;
-                    }
-                    // when ok is pressed and minifigure box is selected, we want to switch to the minifigure submenu else show vehicle screen
-                    if(event->key == InputKeyOk) {
-                        if(model->screen_minfig_vehicle_minfig_box_selected) {
-                            view_dispatcher_switch_to_view(
-                                app->view_dispatcher, ViewMinifigureSelection);
-                        } else {
-                            // model->show_screen_minfig_vehicle = false;
-                            view_dispatcher_switch_to_view(
-                                app->view_dispatcher, ViewVehicleSelection);
-                        }
-                    }
+            if(model->show_placement_selection_screen && event->type == InputTypePress) {
+                if(event->key == InputKeyLeft) {
+                    model->sub_screen_box_selected =
+                        (model->sub_screen_box_selected + SelectionCount - 1) % SelectionCount;
+                } else if(event->key == InputKeyRight) {
+                    model->sub_screen_box_selected =
+                        (model->sub_screen_box_selected + 1) % SelectionCount;
+                } else if(event->key == InputKeyOk) {
+                    view_dispatcher_switch_to_view(
+                        app->view_dispatcher,
+                        submenu_selection_views[model->sub_screen_box_selected]);
                 }
             } else {
                 // when the OK button is pressed, we want to switch to the minifigure selection screen for the selected box
@@ -103,7 +99,7 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                         // if the current selected box is not filled, we want to switch to the minifigure selection screen
                         if(!boxInfo[selectedBox].isFilled && model->connected) {
                             // set current view to minifigure / vehicle selection screen
-                            model->show_screen_minfig_vehicle = true;
+                            model->show_placement_selection_screen = true;
 
                             if(model->minifig_only_mode) {
                                 view_dispatcher_switch_to_view(
@@ -113,10 +109,10 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                         } else if(boxInfo[selectedBox].isFilled) {
                             // if the box is filled, we want to remove the minifigure from the selected box
                             int i = boxInfo[selectedBox].index;
-                            if(i >= 0 && ToyPadEmu_remove(i, selectedBox)) {
+                            if(i >= 0 && ToyPadEmu_remove(i)) {
                                 boxInfo[selectedBox].isFilled = false;
                                 boxInfo[selectedBox].index = -1; // Reset index
-                                set_debug_text("Removed minifigure from toypad");
+                                set_debug_text("Going to remove minifig from toypad");
                                 consumed = true;
                             }
                             return consumed;
@@ -240,8 +236,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // UNUSED(context);
     LDToyPadSceneEmulateModel* model = context;
 
-    if(model->show_screen_minfig_vehicle) {
-        draw_minifigure_vehicle_screen(canvas, model->screen_minfig_vehicle_minfig_box_selected);
+    if(model->show_placement_selection_screen) {
+        draw_placement_selection_screen(canvas, model->sub_screen_box_selected);
         return;
     }
 
@@ -256,8 +252,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         set_connected_status(
             1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
         model->connection_status = "USB Awoken";
-        model->screen_minfig_vehicle_minfig_box_selected =
-            true; // Set the minifigure box selected as this is the most commonnly used at start of the app.
+        model->sub_screen_box_selected =
+            SelectionMinifigure; // Set the minifigure box selected as this is the most commonnly used at start of the app.
 
         // reset the filled boxes
         for(int i = 0; i < numBoxes; i++) {
@@ -323,7 +319,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         boxInfo[selectedBox].index = new_index;
 
         // Send placement command
-        buffer[0] = 0x56;
+        buffer[0] = FRAME_TYPE_REQUEST;
         buffer[1] = 0x0b;
         buffer[2] = token->pad;
         buffer[3] = 0x00;
@@ -451,8 +447,8 @@ static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context
         ldtoypad_scene_emulate_get_view(toypadscene_instance),
         LDToyPadSceneEmulateModel * model,
         {
-            if(model->show_screen_minfig_vehicle) {
-                model->show_screen_minfig_vehicle = false;
+            if(model->show_placement_selection_screen) {
+                model->show_placement_selection_screen = false;
                 return ViewEmulate;
             }
         },
@@ -577,7 +573,7 @@ void minifigures_submenu_callback(void* context, uint32_t index) {
             if(model->connected) {
                 model->selected_minifigure_index = index;
             }
-            model->show_screen_minfig_vehicle = false;
+            model->show_placement_selection_screen = false;
         },
         true);
 
@@ -596,7 +592,7 @@ void vehicles_submenu_callback(void* context, uint32_t index) {
             if(model->connected) {
                 model->selected_vehicle_index = index;
             }
-            model->show_screen_minfig_vehicle = false;
+            model->show_placement_selection_screen = false;
         },
         true);
 

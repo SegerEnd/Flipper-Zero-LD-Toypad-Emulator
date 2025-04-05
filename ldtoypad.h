@@ -48,8 +48,11 @@ typedef enum {
     ViewConfigure, // The configuration screen
     ViewEmulate, // The main screen
     ViewAbout, // The about screen with directions, link to social channel, etc.
+
     ViewMinifigureSelection, // The minifigure selection screen
     ViewVehicleSelection, // The vehicle selection screen
+    ViewFavoritesSelection, // The favorites selection screen
+    ViewSavedSelection, // The saved selection screen
 } Views;
 
 ViewDispatcher* get_view_dispatcher();
