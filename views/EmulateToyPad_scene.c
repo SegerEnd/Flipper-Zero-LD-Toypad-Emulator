@@ -201,30 +201,30 @@ unsigned char generate_checksum_for_command(const unsigned char* command, size_t
     return result;
 }
 
-void selectedBox_to_pad(Token* new_character, int selectedBox) {
+void selectedBox_to_pad(Token* token, int selectedBox) {
     // Convert / map the boxes to pads there are 3 pads and 7 boxes
     // TODO: This needs to be looked at, as I don't know the correct order yet
     switch(selectedBox) {
     case 0:
-        new_character->pad = 2;
+        token->pad = 2;
         break;
     case 1:
-        new_character->pad = 1; // Circle
+        token->pad = 1; // Circle
         break;
     case 2:
-        new_character->pad = 3;
+        token->pad = 3;
         break;
     case 3:
-        new_character->pad = 2;
+        token->pad = 2;
         break;
     case 4:
-        new_character->pad = 2;
+        token->pad = 2;
         break;
     case 5:
-        new_character->pad = 3;
+        token->pad = 3;
         break;
     case 6:
-        new_character->pad = 3;
+        token->pad = 3;
         break;
     default:
         furi_crash("Selected pad is invalid"); // It should never reach this.
@@ -258,6 +258,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         // reset the filled boxes
         for(int i = 0; i < numBoxes; i++) {
             boxInfo[i].isFilled = false;
+            boxInfo[i].index = -1;
         }
 
         // Give dolphin some xp for connecting the toypad
@@ -274,6 +275,10 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     } else if(!model->connected) {
         model->connection_status = "Trying to connect USB";
     }
+
+    // for testing always set the connected status to 1 (connected)
+    set_connected_status(1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
+    model->connected = true;
 
     if((model->selected_minifigure_index > 0 || model->selected_vehicle_index > 0) &&
        model->connected) {
@@ -320,7 +325,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         // Send placement command
         buffer[0] = FRAME_TYPE_REQUEST;
-        buffer[1] = 0x0b;
+        buffer[1] = 0x0b; // Size always 11
         buffer[2] = token->pad;
         buffer[3] = 0x00;
         buffer[4] = token->index;
@@ -358,8 +363,13 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         if(boxInfo[i].isFilled) {
             Token* token = emulator->tokens[boxInfo[i].index];
             if(model->show_icons_index) {
-                // Draw the minifigure icon
-                canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_head);
+                if(token->id) { // Only minifigures have an id, vehicles have no id, but is stored in the "token[180]"
+                    // Draw the minifigure icon
+                    canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_head);
+                } else {
+                    // Draw the vehicle icon
+                    canvas_draw_icon(canvas, boxInfo[i].x + 4, boxInfo[i].y + 3, &I_car);
+                }
             } else {
                 // Draw the first letter of the minifigure name
                 char letter[1] = {0};
@@ -367,7 +377,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
                 // Find the first letter that is not '*' or space
                 for(char* p = token->name; *p; p++) {
                     if(*p != '*' && *p != ' ') {
-                        letter[0] = *p; // Store the character
+                        letter[0] = *p;
                         break;
                     }
                 }
@@ -382,7 +392,8 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
                 if(token->id) {
                     token_selected = 1;
                 } else {
-                    token_selected = 2; // vehicles dont have an id
+                    // vehicles dont have an id stored in token->id, but in token[180]
+                    token_selected = 2;
                 }
             }
         }
@@ -459,7 +470,6 @@ static uint32_t ldtoypad_scene_emulate_navigation_submenu_callback(void* context
 
 void ldtoypad_scene_emulate_view_game_timer_callback(void* context) {
     UNUSED(context);
-    // LDToyPadSceneEmulate* app = (LDToyPadSceneEmulate*)context;
     view_dispatcher_send_custom_event(get_view_dispatcher(), 0);
 }
 

@@ -24,27 +24,24 @@ extern "C" {
 
 typedef struct {
     ViewDispatcher* view_dispatcher; // Switches between our views
-    // NotificationApp* notifications; // Used for controlling the backlight
+
     Submenu* submenu; // The application menu
-    TextInput* text_input; // The text input screen
+
     VariableItemList* variable_item_list_config; // The configuration screen
 
-    // View* view_game; // The main screen
     LDToyPadSceneEmulate* view_scene_emulate; // The emulator screen
 
     Widget* widget_about; // The about screen
 
-    // char* temp_buffer; // Temporary buffer for text input
-    // uint32_t temp_buffer_size; // Size of temporary buffer
-
     Submenu* submenu_minifigure_selection; // The minifigure selection screen
     Submenu* submenu_vehicle_selection; // The vehicle selection screen
+    Submenu* submenu_favorites_selection; // The favorites selection screen
+    Submenu* submenu_saved_selection; // The saved selection screen
 } LDToyPadApp;
 
 // Each view is a screen we show the user.
 typedef enum {
     ViewSubmenu, // The menu when the app starts
-    // ViewTextInput, // Input for configuring text settings
     ViewConfigure, // The configuration screen
     ViewEmulate, // The main screen
     ViewAbout, // The about screen with directions, link to social channel, etc.

@@ -6,7 +6,7 @@ Use your Flipper Zero as a ToyPad!
 This project aims to create a USB emulation app for the Flipper Zero to emulate the functionality of a Lego Dimensions ToyPad.
 
 ## Project Status
-The project is currently in development. **Character placement and vehicle are working** 🎉
+The project is currently in development. **Character placement and vehicles are working** 🎉
 
 ## Features
 Placing characters & vehicles on the ToyPad,

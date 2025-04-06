@@ -107,21 +107,14 @@ ViewDispatcher* get_view_dispatcher() {
     return view_dispatcher;
 }
 
-/**
- * @brief      Allocate the ldtoypad application. Set up the views, resources and settings.
- * @details    This function allocates the ldtoypad application resources.
- * @return     LDToyPadApp object.
-*/
-static LDToyPadApp* ldtoypad_app_alloc() {
-    LDToyPadApp* app = (LDToyPadApp*)malloc(sizeof(LDToyPadApp));
-
-    Gui* gui = furi_record_open(RECORD_GUI);
-
+static void ldtoypad_setup_dispatcher(LDToyPadApp* app, Gui* gui) {
     app->view_dispatcher = view_dispatcher_alloc();
     view_dispatcher = app->view_dispatcher;
     view_dispatcher_attach_to_gui(app->view_dispatcher, gui, ViewDispatcherTypeFullscreen);
     view_dispatcher_set_event_callback_context(app->view_dispatcher, app);
+}
 
+static void ldtoypad_setup_main_menu(LDToyPadApp* app) {
     app->submenu = submenu_alloc();
     submenu_add_item(
         app->submenu, "Emulate", EmulateToyPadSubmenuIndex, ldtoypad_submenu_callback, app);
@@ -131,64 +124,71 @@ static LDToyPadApp* ldtoypad_app_alloc() {
     view_set_previous_callback(submenu_get_view(app->submenu), ldtoypad_navigation_exit_callback);
     view_dispatcher_add_view(app->view_dispatcher, ViewSubmenu, submenu_get_view(app->submenu));
     view_dispatcher_switch_to_view(app->view_dispatcher, ViewSubmenu);
+}
 
+static void ldtoypad_setup_settings(LDToyPadApp* app) {
     app->variable_item_list_config = variable_item_list_alloc();
     variable_item_list_reset(app->variable_item_list_config);
-    VariableItem* item = variable_item_list_add(
+
+    VariableItem* item;
+    bool setting_show_debug_text_index = false;
+    item = variable_item_list_add(
         app->variable_item_list_config,
         setting_show_debug_text_config_label,
         COUNT_OF(setting_bool_values),
         ldtoypad_setting_setting_show_debug_text_index_change,
         app);
-    bool setting_show_debug_text_index = false;
     variable_item_set_current_value_index(item, setting_show_debug_text_index);
     variable_item_set_current_value_text(item, setting_no_yes[setting_show_debug_text_index]);
 
-    // setting 2 show icons or first letter of minifig name
+    bool setting_show_icons_names_index = false;
     item = variable_item_list_add(
         app->variable_item_list_config,
         setting_show_icons_names_config_label,
         COUNT_OF(setting_bool_values),
         ldtoypad_setting_setting_show_icons_names_index_change,
         app);
-    bool setting_show_icons_names_index = false;
     variable_item_set_current_value_index(item, setting_show_icons_names_index);
     variable_item_set_current_value_text(
         item, setting_show_icons_names_names[setting_show_icons_names_index]);
 
-    // setting 3 skip vehicle selection
+    bool setting_minifig_only_mode = false;
     item = variable_item_list_add(
         app->variable_item_list_config,
         "Skip vehicle selection / Minifig only mode",
         COUNT_OF(setting_bool_values),
         ldtoypad_setting_minifig_only_mode_change,
         app);
-    bool setting_minifig_only_mode = false;
     variable_item_set_current_value_index(item, setting_minifig_only_mode);
     variable_item_set_current_value_text(item, setting_no_yes[setting_minifig_only_mode]);
 
     view_set_previous_callback(
         variable_item_list_get_view(app->variable_item_list_config),
         ldtoypad_navigation_submenu_callback);
+
     view_dispatcher_add_view(
         app->view_dispatcher,
         ViewConfigure,
         variable_item_list_get_view(app->variable_item_list_config));
+}
 
+static void ldtoypad_setup_emulation_view(LDToyPadApp* app) {
     app->view_scene_emulate = ldtoypad_scene_emulate_alloc(app);
 
     LDToyPadSceneEmulateModel* model =
         view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
 
-    model->show_debug_text_index = setting_show_debug_text_index;
-    model->show_icons_index = setting_show_icons_names_index;
-    model->minifig_only_mode = setting_minifig_only_mode;
+    model->show_debug_text_index = false;
+    model->show_icons_index = false;
+    model->minifig_only_mode = false;
 
     view_dispatcher_add_view(
         app->view_dispatcher,
         ViewEmulate,
         ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
+}
 
+static void ldtoypad_setup_about_view(LDToyPadApp* app) {
     app->widget_about = widget_alloc();
     widget_add_text_scroll_element(
         app->widget_about,
@@ -197,14 +197,16 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         128,
         64,
         "This is a educational project to learn how to interact and reverse engineer a Toy Pad with a Flipper Zero.\n\nhttps://github.com/SegerEnd/Flipper-Zero-LD-Toypad-Emulator \n\nCredits: \n- Berny23 for the JavaScript Toy Pad Emulator for the Raspberry Pi\n- AlinaNova21 for the Node-LD project (Node.js Lego Dimensions Library)\n- woodenphone for the analysis of the Lego Dimensions Protocol\n\nAuthor: SegerEnd");
+
     view_set_previous_callback(
         widget_get_view(app->widget_about), ldtoypad_navigation_submenu_callback);
 
     view_dispatcher_add_view(app->view_dispatcher, ViewAbout, widget_get_view(app->widget_about));
+}
 
-    // create a minifigure selection screen
+static void ldtoypad_setup_minifigure_menu(LDToyPadApp* app) {
     app->submenu_minifigure_selection = submenu_alloc();
-    // get the minifigures from minifigures.h
+
     for(int i = 0; i < minifigures_count; i++) {
         submenu_add_item(
             app->submenu_minifigure_selection,
@@ -213,6 +215,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
             minifigures_submenu_callback,
             app);
     }
+
     view_set_previous_callback(
         submenu_get_view(app->submenu_minifigure_selection),
         minifigures_submenu_previous_callback);
@@ -223,10 +226,11 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         submenu_get_view(app->submenu_minifigure_selection));
 
     submenu_set_header(app->submenu_minifigure_selection, "Select minifigure");
+}
 
-    // create a vehicle selection screen
+static void ldtoypad_setup_vehicle_menu(LDToyPadApp* app) {
     app->submenu_vehicle_selection = submenu_alloc();
-    // get the vehicles from minifigures.h
+
     for(int i = 0; i < vehicles_count; i++) {
         submenu_add_item(
             app->submenu_vehicle_selection,
@@ -235,6 +239,7 @@ static LDToyPadApp* ldtoypad_app_alloc() {
             vehicles_submenu_callback,
             app);
     }
+
     view_set_previous_callback(
         submenu_get_view(app->submenu_vehicle_selection), minifigures_submenu_previous_callback);
 
@@ -244,6 +249,61 @@ static LDToyPadApp* ldtoypad_app_alloc() {
         submenu_get_view(app->submenu_vehicle_selection));
 
     submenu_set_header(app->submenu_vehicle_selection, "Select vehicle");
+}
+
+static void ldtoypad_setup_favorites_menu(LDToyPadApp* app) {
+    app->submenu_favorites_selection = submenu_alloc();
+
+    // for(int i = 0; i < favorites_count; i++) {
+    //     submenu_add_item(
+    //         app->submenu_favorites_selection,
+    //         favorites[i].name,
+    //         favorites[i].id,
+    //         vehicles_submenu_callback,
+    //         app);
+    // }
+
+    view_set_previous_callback(
+        submenu_get_view(app->submenu_favorites_selection), minifigures_submenu_previous_callback);
+
+    view_dispatcher_add_view(
+        app->view_dispatcher,
+        ViewFavoritesSelection,
+        submenu_get_view(app->submenu_favorites_selection));
+
+    submenu_set_header(app->submenu_favorites_selection, "Select a favorite");
+}
+
+static void ldtoypad_setup_saved_menu(LDToyPadApp* app) {
+    app->submenu_saved_selection = submenu_alloc();
+
+    view_set_previous_callback(
+        submenu_get_view(app->submenu_saved_selection), minifigures_submenu_previous_callback);
+
+    view_dispatcher_add_view(
+        app->view_dispatcher, ViewSavedSelection, submenu_get_view(app->submenu_saved_selection));
+
+    submenu_set_header(app->submenu_saved_selection, "Select saved vehicle");
+}
+
+/**
+ * @brief      Allocate the ldtoypad application. Set up the views, resources and settings.
+ * @details    This function allocates the ldtoypad application resources.
+ * @return     LDToyPadApp object.
+*/
+static LDToyPadApp* ldtoypad_app_alloc() {
+    LDToyPadApp* app = (LDToyPadApp*)malloc(sizeof(LDToyPadApp));
+    Gui* gui = furi_record_open(RECORD_GUI);
+
+    ldtoypad_setup_dispatcher(app, gui);
+    ldtoypad_setup_main_menu(app);
+    ldtoypad_setup_settings(app);
+    ldtoypad_setup_emulation_view(app);
+    ldtoypad_setup_about_view(app);
+    ldtoypad_setup_minifigure_menu(app);
+    ldtoypad_setup_vehicle_menu(app);
+    ldtoypad_setup_favorites_menu(app);
+    ldtoypad_setup_saved_menu(app);
 
     return app;
 }
@@ -254,20 +314,16 @@ static LDToyPadApp* ldtoypad_app_alloc() {
  * @param      app  The ldtoypad application object.
 */
 static void ldtoypad_app_free(LDToyPadApp* app) {
-    // view_dispatcher_remove_view(app->view_dispatcher, ViewTextInput);
-    // text_input_free(app->text_input); // we doesnt have a text input view anymore
-    // free(app->temp_buffer); // same as this
-
     view_dispatcher_remove_view(app->view_dispatcher, ViewAbout);
     widget_free(app->widget_about);
 
     ldtoypad_scene_emulate_free(app->view_scene_emulate);
     view_dispatcher_remove_view(app->view_dispatcher, ViewEmulate);
-    // view_free(ldtoypad_scene_emulate_get_view(app->view_scene_emulate)); // This is allready happening in ldtoypad_scene_emulate_free
+
     free(app->view_scene_emulate);
 
+    variable_item_list_reset(app->variable_item_list_config);
     view_dispatcher_remove_view(app->view_dispatcher, ViewConfigure);
-
     variable_item_list_free(app->variable_item_list_config);
 
     view_dispatcher_remove_view(app->view_dispatcher, ViewSubmenu);
@@ -280,6 +336,14 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     submenu_reset(app->submenu_vehicle_selection);
     view_dispatcher_remove_view(app->view_dispatcher, ViewVehicleSelection);
     submenu_free(app->submenu_vehicle_selection);
+
+    submenu_reset(app->submenu_favorites_selection);
+    view_dispatcher_remove_view(app->view_dispatcher, ViewFavoritesSelection);
+    submenu_free(app->submenu_favorites_selection);
+
+    submenu_reset(app->submenu_saved_selection);
+    view_dispatcher_remove_view(app->view_dispatcher, ViewSavedSelection);
+    submenu_free(app->submenu_saved_selection);
 
     furi_record_close(RECORD_GUI);
 
