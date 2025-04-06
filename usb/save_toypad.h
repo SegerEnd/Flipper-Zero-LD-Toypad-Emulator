@@ -12,10 +12,10 @@ extern "C" {
 extern int favorite_ids[MAX_FAVORITES];
 extern int num_favorites;
 
-void fill_submenu(LDToyPadApp* app);
+void fill_favorites_submenu(LDToyPadApp* app);
 void load_favorites(void);
-bool save_favorites(void);
-bool save_favorite(int id, LDToyPadApp* app);
+// bool save_favorites(void);
+bool favorite(int id, LDToyPadApp* app);
 bool is_favorite(int id);
 bool unfavorite(int id, LDToyPadApp* app);
 

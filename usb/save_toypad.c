@@ -98,7 +98,7 @@ bool save_favorites(void) {
     return true;
 }
 
-void fill_submenu(LDToyPadApp* app) {
+void fill_favorites_submenu(LDToyPadApp* app) {
     // Clear the submenu before filling it with favorites
     submenu_reset(app->submenu_favorites_selection);
 
@@ -122,7 +122,7 @@ void fill_submenu(LDToyPadApp* app) {
     submenu_set_header(app->submenu_favorites_selection, "Select a favorite");
 }
 
-bool save_favorite(int id, LDToyPadApp* app) {
+bool favorite(int id, LDToyPadApp* app) {
     if(num_favorites >= MAX_FAVORITES) {
         FURI_LOG_E(TAG, "Favorites list is full, cannot add new favorite");
         return false;
@@ -150,7 +150,7 @@ bool unfavorite(int id, LDToyPadApp* app) {
             num_favorites--;
             save_favorites();
 
-            fill_submenu(app); // Refresh the submenu
+            fill_favorites_submenu(app); // Refresh the submenu
 
             return true;
         }

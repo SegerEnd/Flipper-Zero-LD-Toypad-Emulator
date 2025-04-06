@@ -256,7 +256,7 @@ static void ldtoypad_setup_vehicle_menu(LDToyPadApp* app) {
 static void ldtoypad_setup_favorites_menu(LDToyPadApp* app) {
     app->submenu_favorites_selection = submenu_alloc();
 
-    fill_submenu(app);
+    fill_favorites_submenu(app);
 
     view_set_previous_callback(
         submenu_get_view(app->submenu_favorites_selection), minifigures_submenu_previous_callback);
