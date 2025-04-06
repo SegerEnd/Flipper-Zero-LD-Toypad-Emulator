@@ -276,10 +276,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "Trying to connect USB";
     }
 
-    // for testing always set the connected status to 1 (connected)
-    set_connected_status(1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
-    model->connected = true;
-
     if((model->selected_minifigure_index > 0 || model->selected_vehicle_index > 0) &&
        model->connected) {
         int id = model->selected_minifigure_index > 0 ? model->selected_minifigure_index :
