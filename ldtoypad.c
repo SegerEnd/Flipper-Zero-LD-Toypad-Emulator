@@ -256,18 +256,7 @@ static void ldtoypad_setup_vehicle_menu(LDToyPadApp* app) {
 static void ldtoypad_setup_favorites_menu(LDToyPadApp* app) {
     app->submenu_favorites_selection = submenu_alloc();
 
-    for(int i = 0; i < num_favorites; i++) {
-        if(favorite_ids[i] != 0) {
-            submenu_add_item(
-                app->submenu_favorites_selection,
-                get_minifigure_name(favorite_ids[i]),
-                favorite_ids[i],
-                minifigures_submenu_callback,
-                app);
-        } else {
-            break;
-        }
-    }
+    fill_submenu(app);
 
     view_set_previous_callback(
         submenu_get_view(app->submenu_favorites_selection), minifigures_submenu_previous_callback);
@@ -276,8 +265,6 @@ static void ldtoypad_setup_favorites_menu(LDToyPadApp* app) {
         app->view_dispatcher,
         ViewFavoritesSelection,
         submenu_get_view(app->submenu_favorites_selection));
-
-    submenu_set_header(app->submenu_favorites_selection, "Select a favorite");
 }
 
 static void ldtoypad_setup_saved_menu(LDToyPadApp* app) {

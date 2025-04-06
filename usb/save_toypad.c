@@ -98,6 +98,30 @@ bool save_favorites(void) {
     return true;
 }
 
+void fill_submenu(LDToyPadApp* app) {
+    // Clear the submenu before filling it with favorites
+    submenu_reset(app->submenu_favorites_selection);
+
+    // Load favorites from file
+    load_favorites();
+
+    // Fill the submenu with favorite items
+    for(int i = 0; i < num_favorites; i++) {
+        if(favorite_ids[i] != 0) {
+            submenu_add_item(
+                app->submenu_favorites_selection,
+                get_minifigure_name(favorite_ids[i]),
+                favorite_ids[i],
+                minifigures_submenu_callback,
+                app);
+        } else {
+            break;
+        }
+    }
+
+    submenu_set_header(app->submenu_favorites_selection, "Select a favorite");
+}
+
 bool save_favorite(int id, LDToyPadApp* app) {
     if(num_favorites >= MAX_FAVORITES) {
         FURI_LOG_E(TAG, "Favorites list is full, cannot add new favorite");
@@ -114,6 +138,24 @@ bool save_favorite(int id, LDToyPadApp* app) {
         app);
 
     return save_favorites();
+}
+
+bool unfavorite(int id, LDToyPadApp* app) {
+    for(int i = 0; i < num_favorites; i++) {
+        if(favorite_ids[i] == id) {
+            // Shift the remaining favorites down
+            for(int j = i; j < num_favorites - 1; j++) {
+                favorite_ids[j] = favorite_ids[j + 1];
+            }
+            num_favorites--;
+            save_favorites();
+
+            fill_submenu(app); // Refresh the submenu
+
+            return true;
+        }
+    }
+    return false;
 }
 
 bool is_favorite(int id) {
