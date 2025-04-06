@@ -22,6 +22,12 @@ unsigned char generate_checksum_for_command(const unsigned char* command, size_t
 
 void selectedBox_to_pad(Token* new_character, int selectedBox);
 
+typedef enum {
+    MiniSelectionFavorite,
+    MiniSelectionSave,
+    MiniSelectionCount // Total number of selections, must always be last
+} MiniSelectionType;
+
 typedef struct {
     bool left_pressed;
     bool up_pressed;
@@ -41,6 +47,9 @@ typedef struct {
     bool show_debug_text_index;
     bool show_icons_index;
     bool minifig_only_mode;
+
+    bool show_mini_menu_selected;
+    MiniSelectionType mini_option_selected;
 
     // Inner-screens / pseudo-screens
     bool show_placement_selection_screen;

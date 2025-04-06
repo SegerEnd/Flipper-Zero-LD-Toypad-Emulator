@@ -5,6 +5,8 @@
 
 #include "minifigures.h"
 
+#include "usb/save_toypad.h"
+
 // Our application menu has 3 items.  You can add more items if you want.
 typedef enum {
     EmulateToyPadSubmenuIndex,
@@ -254,14 +256,18 @@ static void ldtoypad_setup_vehicle_menu(LDToyPadApp* app) {
 static void ldtoypad_setup_favorites_menu(LDToyPadApp* app) {
     app->submenu_favorites_selection = submenu_alloc();
 
-    // for(int i = 0; i < favorites_count; i++) {
-    //     submenu_add_item(
-    //         app->submenu_favorites_selection,
-    //         favorites[i].name,
-    //         favorites[i].id,
-    //         vehicles_submenu_callback,
-    //         app);
-    // }
+    for(int i = 0; i < num_favorites; i++) {
+        if(favorite_ids[i] != 0) {
+            submenu_add_item(
+                app->submenu_favorites_selection,
+                get_minifigure_name(favorite_ids[i]),
+                favorite_ids[i],
+                minifigures_submenu_callback,
+                app);
+        } else {
+            break;
+        }
+    }
 
     view_set_previous_callback(
         submenu_get_view(app->submenu_favorites_selection), minifigures_submenu_previous_callback);
@@ -294,6 +300,8 @@ static void ldtoypad_setup_saved_menu(LDToyPadApp* app) {
 static LDToyPadApp* ldtoypad_app_alloc() {
     LDToyPadApp* app = (LDToyPadApp*)malloc(sizeof(LDToyPadApp));
     Gui* gui = furi_record_open(RECORD_GUI);
+
+    load_favorites();
 
     ldtoypad_setup_dispatcher(app, gui);
     ldtoypad_setup_main_menu(app);

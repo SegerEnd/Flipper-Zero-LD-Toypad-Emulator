@@ -6,6 +6,7 @@
 #include <ldtoypad_icons.h>
 
 void draw_placement_selection_screen(Canvas* canvas, SelectionType selection) {
+    canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
     canvas_set_color(canvas, ColorBlack);
 
