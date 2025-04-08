@@ -9,6 +9,7 @@
 #include "../tea.h"
 #include "../burtle.h"
 #include "../minifigures.h"
+#include "save_toypad.h"
 
 // Define all the possible commands
 #define CMD_WAKE   0xB0
@@ -717,6 +718,28 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
 
+        ind = request.payload[0]; // Token index
+        page = request.payload[1]; // Page number
+        uint8_t* data = request.payload + 2;
+
+        Token* token = find_token_by_index(emulator, ind);
+        if(token != NULL) {
+            // Copy 4 bytes of data to token->token at offset 4 * page
+            if(page >= 0 && page < 64) {
+                memcpy(token->token + 4 * page, data, 4);
+            }
+
+            // If page is 24 or 36, update token->name based on the vehicle ID from the data
+            if(page == 24 || page == 36) {
+                uint16_t vehicle_id = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
+                snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(vehicle_id));
+            }
+
+            save_token(token); // Save the token to a file
+        }
+
+        response.payload[0] = 0x00;
+        response.payload_len = 1;
         break;
     case CMD_CHAL:
         sprintf(debug_text, "CMD_CHAL");

@@ -61,8 +61,8 @@ static void ldtoypad_submenu_callback(void* context, uint32_t index) {
     }
 }
 
-static bool setting_bool_values[] = {false, true};
-static char* setting_no_yes[] = {"No", "Yes"};
+static const bool setting_bool_values[] = {false, true};
+static const char* setting_no_yes[] = {"No", "Yes"};
 
 /**
  * First setting is the show debug text setting. This setting has 2 options: yes or no. Default is no.

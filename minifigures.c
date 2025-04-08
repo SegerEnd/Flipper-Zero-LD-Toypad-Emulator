@@ -5,7 +5,7 @@
 #define MAX_MINIFIGS 75
 #define MAX_VEHICLES 240
 
-Minifigure minifigures[MAX_MINIFIGS] = {
+const Minifigure minifigures[MAX_MINIFIGS] = {
     {1, "Batman"},
     {2, "Gandalf"},
     {3, "Wyldstyle"},
@@ -84,9 +84,9 @@ Minifigure minifigures[MAX_MINIFIGS] = {
     {76, "Buttercup"},
     {77, "Starfire"},
 };
-int minifigures_count = sizeof(minifigures) / sizeof(Minifigure);
+const int minifigures_count = sizeof(minifigures) / sizeof(Minifigure);
 
-Vehicle vehicles[MAX_VEHICLES] = {
+const Vehicle vehicles[MAX_VEHICLES] = {
     {1000, "Police Car"},
     {1001, "* Aerial Squad Car"},
     {1002, "* Missile Striker"},
@@ -328,7 +328,7 @@ Vehicle vehicles[MAX_VEHICLES] = {
     {1264, "* T-Rocket"},
     {1265, "* Robot Retriever"}};
 
-int vehicles_count = sizeof(vehicles) / sizeof(Vehicle);
+const int vehicles_count = sizeof(vehicles) / sizeof(Vehicle);
 
 const char* get_minifigure_name(int id) {
     for(int i = 0; i < MAX_MINIFIGS && minifigures[i].name != NULL; i++) {

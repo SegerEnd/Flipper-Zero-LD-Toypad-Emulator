@@ -26,24 +26,25 @@ LDToyPadSceneEmulate* toypadscene_instance;
 FuriHalUsbInterface* usb_mode_prev = NULL;
 
 // Selection box icon
-uint8_t I_selectionBox[] = {0xf8, 0xff, 0x00, 0x06, 0x00, 0x01, 0x03, 0x00, 0x02, 0x03, 0x00,
-                            0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03,
-                            0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02,
-                            0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00,
-                            0x02, 0x07, 0x00, 0x03, 0xfe, 0xff, 0x01, 0xfc, 0xff, 0x00};
+const uint8_t I_selectionBox[] = {0xf8, 0xff, 0x00, 0x06, 0x00, 0x01, 0x03, 0x00, 0x02, 0x03, 0x00,
+                                  0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03,
+                                  0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02,
+                                  0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00, 0x02, 0x03, 0x00,
+                                  0x02, 0x07, 0x00, 0x03, 0xfe, 0xff, 0x01, 0xfc, 0xff, 0x00};
 
 //  Selection circle icon
-uint8_t I_selectionCircle[] = {0x80, 0x7f, 0x00, 0xf0, 0xff, 0x03, 0xf8, 0xc0, 0x07, 0x3c, 0x00,
-                               0x0f, 0x0c, 0x00, 0x0c, 0x06, 0x00, 0x18, 0x07, 0x00, 0x38, 0x07,
-                               0x00, 0x38, 0x03, 0x00, 0x30, 0x03, 0x00, 0x30, 0x07, 0x00, 0x38,
-                               0x06, 0x00, 0x18, 0x06, 0x00, 0x18, 0x3e, 0x00, 0x1f, 0xf8, 0xc0,
-                               0x07, 0xf0, 0xff, 0x03, 0x80, 0x7f, 0x00};
+const uint8_t I_selectionCircle[] = {0x80, 0x7f, 0x00, 0xf0, 0xff, 0x03, 0xf8, 0xc0, 0x07,
+                                     0x3c, 0x00, 0x0f, 0x0c, 0x00, 0x0c, 0x06, 0x00, 0x18,
+                                     0x07, 0x00, 0x38, 0x07, 0x00, 0x38, 0x03, 0x00, 0x30,
+                                     0x03, 0x00, 0x30, 0x07, 0x00, 0x38, 0x06, 0x00, 0x18,
+                                     0x06, 0x00, 0x18, 0x3e, 0x00, 0x1f, 0xf8, 0xc0, 0x07,
+                                     0xf0, 0xff, 0x03, 0x80, 0x7f, 0x00};
 
 // Define box information (coordinates and dimensions) for each box (7 boxes total)
 
 struct BoxInfo {
-    int x; // X-coordinate
-    int y; // Y-coordinate
+    const uint8_t x; // X-coordinate
+    const uint8_t y; // Y-coordinate
     bool isFilled; // Indicates if the box is filled with a Token (minifig / vehicle)
     int index; // The index of the token in the box
 };
@@ -150,12 +151,25 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                                         favorite(id, app);
                                     }
                                 }
-                            } else {
-                                // TODO: Implement vehicle favorites
                             }
+                            // else {
+                            //     // TODO: Implement vehicle favorites
+                            // }
                             break;
                         case MiniSelectionSave:
-                            // Handle Save
+                            Token* token = get_token_from_index(boxInfo[selectedBox].index);
+                            if(!token->id) {
+                                int saved = save_token(token);
+                                if(saved == 1) {
+                                    set_debug_text("Saved token to file");
+                                } else if(saved == 2) {
+                                    set_debug_text("Failed to open token to file");
+                                } else if(saved == 3) {
+                                    set_debug_text("Failed to write token to file");
+                                } else {
+                                    set_debug_text("Something else went wrong saving token");
+                                }
+                            }
                             break;
                         default:
                             break;
@@ -326,6 +340,50 @@ void selectedBox_to_pad(Token* token, int selectedBox) {
     }
 }
 
+bool place_token(Token* token, int selectedBox) {
+    unsigned char buffer[32] = {0};
+
+    boxInfo[selectedBox].isFilled = true;
+    selectedBox_to_pad(token, selectedBox);
+
+    // Find an empty slot or use the next available index
+    int new_index = -1;
+    for(int i = 0; i < MAX_TOKENS; i++) {
+        if(emulator->tokens[i] == NULL) {
+            new_index = i;
+            break;
+        }
+    }
+    if(new_index == -1 && emulator->token_count < MAX_TOKENS) {
+        new_index = emulator->token_count++;
+    } else if(new_index == -1) {
+        set_debug_text("Max tokens reached!");
+        free(token);
+        return false;
+    }
+
+    token->index = new_index;
+    emulator->tokens[new_index] = token;
+    boxInfo[selectedBox].index = new_index;
+
+    // Send placement command
+    buffer[0] = FRAME_TYPE_REQUEST;
+    buffer[1] = 0x0b; // Size always 11
+    buffer[2] = token->pad;
+    buffer[3] = 0x00;
+    buffer[4] = token->index;
+    buffer[5] = 0x00;
+    memcpy(&buffer[6], token->uid, 7);
+    buffer[13] = generate_checksum_for_command(buffer, 13);
+
+    usbd_ep_write(get_usb_device(), HID_EP_IN, buffer, sizeof(buffer));
+
+    // Give dolphin some xp for placing a minifigure, vehicle
+    dolphin_deed(DolphinDeedNfcReadSuccess);
+
+    return true;
+}
+
 static const char* all_mini_menu_labels[] = {"Add favorite", "Save vehicle"};
 
 static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* context) {
@@ -385,50 +443,13 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
             model->selected_minifigure_index = 0;
         }
 
-        unsigned char buffer[32] = {0};
         if(!is_vehicle && id < 1) id = 1;
         if(is_vehicle && id < 1000) id = 1000;
 
         Token* token = is_vehicle ? createVehicle(id, (uint32_t[]){0, 0}) : createCharacter(id);
         if(!token) return; // Handle allocation failure
 
-        boxInfo[selectedBox].isFilled = true;
-        selectedBox_to_pad(token, selectedBox);
-
-        // Find an empty slot or use the next available index
-        int new_index = -1;
-        for(int i = 0; i < MAX_TOKENS; i++) {
-            if(emulator->tokens[i] == NULL) {
-                new_index = i;
-                break;
-            }
-        }
-        if(new_index == -1 && emulator->token_count < MAX_TOKENS) {
-            new_index = emulator->token_count++;
-        } else if(new_index == -1) {
-            set_debug_text("Max tokens reached!");
-            free(token);
-            return;
-        }
-
-        token->index = new_index;
-        emulator->tokens[new_index] = token;
-        boxInfo[selectedBox].index = new_index;
-
-        // Send placement command
-        buffer[0] = FRAME_TYPE_REQUEST;
-        buffer[1] = 0x0b; // Size always 11
-        buffer[2] = token->pad;
-        buffer[3] = 0x00;
-        buffer[4] = token->index;
-        buffer[5] = 0x00;
-        memcpy(&buffer[6], token->uid, 7);
-        buffer[13] = generate_checksum_for_command(buffer, 13);
-
-        usbd_ep_write(model->usbDevice, HID_EP_IN, buffer, sizeof(buffer));
-
-        // Give dolphin some xp for placing a minifigure, vehicle
-        dolphin_deed(DolphinDeedNfcReadSuccess);
+        place_token(token, selectedBox);
     }
 
     canvas_clear(canvas);
@@ -524,6 +545,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
     if(model->show_mini_menu_selected && model->connected && token_selected) {
         // Adjust position depending on selectedBox
+        // TODO: Needs to be looked at if positions are good for all boxes
         if(selectedBox == 2 || selectedBox == 6) {
             x -= 75;
             y += 10;
@@ -542,20 +564,15 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         if(token_selected == 1) {
             // Only minifig, show Add favorite
             visible_labels[visible_count++] = all_mini_menu_labels[0];
+
+            // change add favorite to remove favorite if the minifigure is already a favorite
+            if(is_favorite(get_token_from_index(boxInfo[selectedBox].index)->id)) {
+                visible_labels[0] = "Remove favorite";
+            }
         } else if(token_selected == 2) {
-            // Only vehicle, show both options
-            visible_labels[visible_count++] = all_mini_menu_labels[0];
+            // Only vehicle, show only save vehicle
             visible_labels[visible_count++] = all_mini_menu_labels[1];
-        }
-
-        // change add favorite to remove favorite if the minifigure is already a favorite
-        if(is_favorite(get_token_from_index(boxInfo[selectedBox].index)->id)) {
-            visible_labels[0] = "Remove favorite";
-        }
-
-        // Clamp selection to visible count
-        if(model->mini_option_selected >= visible_count) {
-            model->mini_option_selected = 0;
+            model->mini_option_selected = MiniSelectionSave;
         }
 
         // Draw visible menu
