@@ -1,7 +1,5 @@
-# For details & more options, see documentation/AppManifests.md in firmware repo
-
 App(
-    appid="ldtoypad",  # Must be unique
+    appid="ldtoypad",
     name="LEGO Dimensions Toy Pad",  # Displayed in menus
     apptype=FlipperAppType.EXTERNAL,
     entry_point="ldtoypad_app",
@@ -10,9 +8,8 @@ App(
     requires=[
         "gui",
     ],
-    # Optional values
     order=60,
-    fap_version="0.2",
+    fap_version="0.3",
     fap_icon="ldtoypad.png",  # 10x10 1-bit PNG
     fap_description="USB Toy Pad emulator for Lego Dimensions",
     fap_author="Seger",

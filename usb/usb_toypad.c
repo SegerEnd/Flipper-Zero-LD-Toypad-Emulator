@@ -9,6 +9,7 @@
 #include "../tea.h"
 #include "../burtle.h"
 #include "../minifigures.h"
+#include "save_toypad.h"
 
 // Define all the possible commands
 #define CMD_WAKE   0xB0
@@ -39,9 +40,6 @@
 PLACE_IN_SECTION("MB_MEM2") static uint32_t ubuf[0x20];
 
 ToyPadEmu* emulator;
-// ToyPadEmu* get_emulator() {
-//     return emulator;
-// }
 
 int connected_status = 0;
 int get_connected_status() {
@@ -60,7 +58,7 @@ char debug_text_ep_out[HID_EP_SZ] = "nothing";
 char debug_text[64] = " ";
 
 void set_debug_text(char* text) {
-    sprintf(debug_text, "%s", text);
+    snprintf(debug_text, sizeof(debug_text), "%s", text);
 }
 
 void set_debug_text_ep_in(char* text) {
@@ -116,45 +114,6 @@ void writeUInt32BE(uint8_t* buffer, uint32_t value, int offset) {
     buffer[offset + 3] = value & 0xFF;
 }
 
-// a function to convert an array of bytes to a string like 0x00, 0x01, 0x02, 0x03
-void hexArrayToString(unsigned char* array, int size, char* outputBuffer, int bufferSize) {
-    int currentLength = 0;
-
-    // clear previous pointers
-    memset(outputBuffer, 0, bufferSize);
-
-    for(int i = 0; i < size; i++) {
-        // Get the two nibbles (4-bit halves) of the current byte
-        unsigned char highNibble = (array[i] >> 4) & 0x0F; // High 4 bits
-        unsigned char lowNibble = array[i] & 0x0F; // Low 4 bits
-
-        // Convert nibbles to hex characters
-        char highChar = (highNibble < 10) ? ('0' + highNibble) : ('A' + highNibble - 10);
-        char lowChar = (lowNibble < 10) ? ('0' + lowNibble) : ('A' + lowNibble - 10);
-
-        // Append "0x", the hex characters, and a space to the buffer
-        if(currentLength + 4 <
-           bufferSize) { // Ensure enough space for "0x", two chars, and a space
-            outputBuffer[currentLength++] = '0';
-            outputBuffer[currentLength++] = 'x';
-            outputBuffer[currentLength++] = highChar;
-            outputBuffer[currentLength++] = lowChar;
-
-            // Add a space after each hex value, except the last one
-            if(i < size - 1 && currentLength < bufferSize) {
-                outputBuffer[currentLength++] = ' ';
-            }
-        } else {
-            break; // Stop if there isn't enough space
-        }
-    }
-
-    // Null-terminate the string
-    if(currentLength < bufferSize) {
-        outputBuffer[currentLength] = '\0';
-    }
-}
-
 // Function to parse a Frame into a Request
 void parse_request(Request* request, Frame* f) {
     if(request == NULL || f == NULL) return;
@@ -173,7 +132,7 @@ void parse_frame(Frame* frame, unsigned char* buf, int len) {
     frame->type = buf[0];
     frame->len = buf[1];
     memcpy(frame->payload, buf + 2, frame->len);
-    frame->chksum = buf[frame->len + 2];
+    // frame->chksum = buf[frame->len + 2];
 }
 
 // Function to calculate checksum
@@ -193,24 +152,11 @@ void calculate_checksum(uint8_t* buf, int length, int place) {
     buf[place] = checksum;
 }
 
-// calculate checksum to int
-int calculate_checksum_int(uint8_t* buf, int length) {
-    uint8_t checksum = 0;
-
-    // Calculate checksum (up to 'length')
-    for(int i = 0; i < length; i++) {
-        checksum = (checksum + buf[i]) % 256;
-    }
-
-    return checksum;
-}
-
 // Function to build a Frame into a buffer
 int build_frame(Frame* frame, unsigned char* buf) {
     buf[0] = frame->type;
     buf[1] = frame->len;
     memcpy(buf + 2, frame->payload, frame->len);
-    // buf[frame->len + 2] = calculate_checksum(buf, frame->len + 2);
     calculate_checksum(buf, frame->len + 2, -1);
     return frame->len + 3;
 }
@@ -225,11 +171,20 @@ void parse_response(Response* response, Frame* frame) {
 
 // Function to build a Response into a Frame
 int build_response(Response* response, unsigned char* buf) {
-    response->frame.type = 0x55;
+    response->frame.type = FRAME_TYPE_RESPONSE;
     response->frame.len = response->payload_len + 1;
     response->frame.payload[0] = response->cid;
     memcpy(response->frame.payload + 1, response->payload, response->payload_len);
     return build_frame(&response->frame, buf);
+}
+
+Token* find_token_by_index(ToyPadEmu* emulator, int index) {
+    for(int i = 0; i < MAX_TOKENS; i++) {
+        if(emulator->tokens[i] != NULL && emulator->tokens[i]->index == index) {
+            return emulator->tokens[i];
+        }
+    }
+    return NULL;
 }
 
 /* String descriptors */
@@ -373,7 +328,6 @@ static usbd_device* usb_dev;
 static bool hid_connected = false;
 static HidStateCallback callback;
 static void* cb_ctx;
-// static uint8_t led_state;
 static bool boot_protocol = false;
 
 bool furi_hal_hid_is_connected() {
@@ -437,10 +391,20 @@ void create_uid(Token* token, int id) {
 
     token->uid[0] = 0x04; // uid always 0x04
 
-    for(int i = 1; i <= 5; i++) {
-        // Combine id, version_name, and index for a hash
-        token->uid[i] =
-            (uint8_t)((id * 31 + count * 17 + version_name[i % sizeof(version_name)]) % 256);
+    // when token is a vehicle we want a random uid for upgrades etc when creating a new vehicle
+    if(!token->id) {
+        token->uid[1] = rand() % 256;
+        token->uid[2] = rand() % 256;
+        token->uid[3] = rand() % 256;
+        token->uid[4] = rand() % 256;
+        token->uid[5] = rand() % 256;
+    } else {
+        // Generate UID for a minfig, that is always the same for your Flipper Zero
+        for(int i = 1; i <= 5; i++) {
+            // Combine id, version_name, and index for a hash
+            token->uid[i] =
+                (uint8_t)((id * 31 + count * 17 + version_name[i % sizeof(version_name)]) % 256);
+        }
     }
 
     token->uid[6] = 0x80; // last uid byte always 0x80
@@ -459,14 +423,6 @@ Token* createCharacter(int id) {
     snprintf(token->name, sizeof(token->name), "%s", get_minifigure_name(id));
 
     return token; // Return the created token
-}
-
-// Helper to write a 32-bit little-endian value, no offset
-void writeUInt32LE_NO(uint8_t* buffer, uint32_t value) {
-    buffer[0] = (value >> 0) & 0xFF;
-    buffer[1] = (value >> 8) & 0xFF;
-    buffer[2] = (value >> 16) & 0xFF;
-    buffer[3] = (value >> 24) & 0xFF;
 }
 
 // Helper to write a 16-bit little-endian value, no offset
@@ -494,9 +450,9 @@ Token* createVehicle(int id, uint32_t upgrades[2]) {
     create_uid(token, id);
 
     // Write the upgrades and ID to the token data
-    writeUInt32LE_NO(&token->token[0x23 * 4], upgrades[0]); // Upgrades[0]
+    writeUInt32LE(&token->token[0x23 * 4], upgrades[0]); // Upgrades[0]
     writeUInt16LE_NO(&token->token[0x24 * 4], id); // ID
-    writeUInt32LE_NO(&token->token[0x25 * 4], upgrades[1]); // Upgrades[1]
+    writeUInt32LE(&token->token[0x25 * 4], upgrades[1]); // Upgrades[1]
     writeUInt16BE_NO(&token->token[0x26 * 4], 1); // Constant value 1 (Big Endian)
 
     snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(id));
@@ -505,15 +461,14 @@ Token* createVehicle(int id, uint32_t upgrades[2]) {
 }
 
 // Remove a token
-bool ToyPadEmu_remove(int index, int selectedBox) {
-    UNUSED(selectedBox);
+bool ToyPadEmu_remove(int index) {
     if(index < 0 || index >= MAX_TOKENS || emulator->tokens[index] == NULL) {
         return false; // Invalid index or already removed
     }
 
     // Send removal command (assuming this is already implemented)
     unsigned char buffer[32] = {0};
-    buffer[0] = 0x56; // Magic number
+    buffer[0] = FRAME_TYPE_REQUEST; // Magic number
     buffer[1] = 0x0b; // Size
     buffer[2] = emulator->tokens[index]->pad; // Pad number
     buffer[3] = 0x00;
@@ -536,12 +491,7 @@ static void hid_init(usbd_device* dev, FuriHalUsbInterface* intf, void* ctx) {
     FuriHalUsbHidConfig* cfg = (FuriHalUsbHidConfig*)ctx;
     usb_dev = dev;
 
-    // if(emulator == NULL) emulator = malloc(sizeof(ToyPadEmu));
     if(burtle == NULL) burtle = malloc(sizeof(Burtle));
-
-    // hid_report.keyboard.report_id = ReportIdKeyboard;
-    // hid_report.mouse.report_id = ReportIdMouse;
-    // hid_report.consumer.report_id = ReportIdConsumer;
 
     usb_hid.dev_descr->iManufacturer = 0;
     usb_hid.dev_descr->iProduct = 0;
@@ -582,14 +532,22 @@ static void hid_deinit(usbd_device* dev) {
     usbd_reg_config(dev, NULL);
     usbd_reg_control(dev, NULL);
 
-    // free(callback);
-    // free(cb_ctx);
-
     free(usb_hid_ldtoypad.str_manuf_descr);
     free(usb_hid_ldtoypad.str_prod_descr);
 
-    // free(emulator);
     free(burtle);
+
+    // clear the tokens on the emulator and free the memory
+    for(int i = 0; i < MAX_TOKENS; i++) {
+        if(emulator->tokens[i] != NULL) {
+            free(emulator->tokens[i]);
+            emulator->tokens[i] = NULL;
+        }
+    }
+    emulator->token_count = 0;
+    memset(emulator->tokens, 0, sizeof(emulator->tokens));
+
+    connected_status = 0;
 }
 
 static void hid_on_wakeup(usbd_device* dev) {
@@ -639,9 +597,7 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     Frame frame;
     parse_frame(&frame, req_buf, len);
 
-    if(frame.len == 0) {
-        return;
-    }
+    if(frame.len == 0) return;
 
     Request request;
 
@@ -661,7 +617,6 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
     switch(request.cmd) {
     case CMD_WAKE:
-        // handle_cmd_wake(req + 1, res, &res_size);
         sprintf(debug_text, "CMD_WAKE");
 
         emulator->token_count = 0;
@@ -709,26 +664,10 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
 
         response.payload[0] = 0;
 
-        token = NULL;
-
-        sprintf(debug_text_ep_in, "Search token?");
-
         // Find the token that matches the ind
-        for(int i = 0; i < MAX_TOKENS; i++) {
-            if(emulator->tokens[i] != NULL) {
-                // Process the token
-                if(emulator->tokens[i]->index == ind) {
-                    // snprintf(debug_text, sizeof(debug_text), "Found token %d", emulator->tokens[i]->id); // why does this crash the application?
-                    token = emulator->tokens[i];
-                    sprintf(debug_text_ep_in, "Loop a token?");
-                    break;
-                }
-            }
-        }
+        token = find_token_by_index(emulator, ind);
 
         if(token) {
-            sprintf(debug_text_ep_in, "Is a token");
-
             int start = page * 4;
             memcpy(response.payload + 1, token->token + start, 16);
         }
@@ -738,19 +677,18 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         if(!strstr(debug_text, "CMD_MODEL")) {
             snprintf(debug_text + strlen(debug_text), sizeof(debug_text), " CMD_MODEL");
         }
+
         tea_decrypt(request.payload, emulator->tea_key, request.payload);
         int index = request.payload[0];
         conf = readUInt32BE(request.payload, 4);
         unsigned char buf[8] = {0};
         writeUInt32BE(buf, conf, 4);
         token = NULL;
-        for(int i = 0; i < MAX_TOKENS; i++) {
-            if(emulator->tokens[i] != NULL && emulator->tokens[i]->index == index) {
-                token = emulator->tokens[i];
-                break;
-            }
-        }
-        memset(response.payload, 0, sizeof(response.payload)); // Clear payload for consistency
+
+        token = find_token_by_index(emulator, index);
+
+        memset(response.payload, 0, sizeof(response.payload));
+
         if(token) {
             if(token->id) {
                 response.payload[0] = 0x00;
@@ -789,6 +727,29 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         break;
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
+
+        // Extract index, page, and data
+        ind = request.payload[0];
+        page = request.payload[1];
+        uint8_t* data = request.payload + 2;
+
+        // Find the token
+        Token* token = find_token_by_index(emulator, ind);
+        if(token) {
+            // Copy 4 bytes of data to token->token at offset 4 * page
+            if(page >= 0 && page < 64) {
+                memcpy(token->token + 4 * page, data, 4);
+            }
+
+            if(page == 24 || page == 36) {
+                uint16_t vehicle_id = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
+                snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(vehicle_id));
+            }
+        }
+
+        // Prepare the response
+        response.payload[0] = 0x00;
+        response.payload_len = 1;
 
         break;
     case CMD_CHAL:

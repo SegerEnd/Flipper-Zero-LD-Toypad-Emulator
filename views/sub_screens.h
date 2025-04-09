@@ -6,7 +6,15 @@
 extern "C" {
 #endif
 
-void draw_minifigure_vehicle_screen(Canvas* canvas, bool minfig_box_selected);
+typedef enum {
+    SelectionMinifigure,
+    SelectionVehicle,
+    SelectionFavorites,
+    SelectionSaved,
+    SelectionCount // Total number of selections, must always be last
+} SelectionType;
+
+void draw_placement_selection_screen(Canvas* canvas, SelectionType selection);
 
 #ifdef __cplusplus
 }

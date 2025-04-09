@@ -5,29 +5,29 @@ extern "C" {
 #endif
 
 typedef struct {
-    int id;
+    const int id;
     const char* name;
     // const char* world;
     // const char* abilities;
 } Minifigure;
 
-extern Minifigure minifigures[];
+extern const Minifigure minifigures[];
 
 typedef struct {
-    int id;
+    const int id;
     const char* name;
 
     // upgrades, not yet implemented
 } Vehicle;
 
-extern Vehicle vehicles[];
+extern const Vehicle vehicles[];
 
 // count of minifigures
-extern int minifigures_count;
+extern const int minifigures_count;
 
 // count of vehicles
 
-extern int vehicles_count;
+extern const int vehicles_count;
 
 /**
  * @brief      Get the character name by its id
