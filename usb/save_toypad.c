@@ -4,13 +4,18 @@
 
 #include "save_toypad.h"
 
+#include "../views/EmulateToyPad_scene.h"
+
 #include "../minifigures.h"
 
 #define TAG "LDToyPad"
 
 #define FILEPATH_SIZE 128
 
+#define FILE_NAME_LEN_MAX 256
+
 #define TOKEN_FILE_EXTENSION ".toy"
+#define TOKENS_DIR           "tokens"
 
 int favorite_ids[MAX_FAVORITES]; // In-memory array for favorites
 int num_favorites = 0; // Number of favorites in memory
@@ -170,9 +175,120 @@ bool is_favorite(int id) {
     return false;
 }
 
+bool make_token_dir(Storage* storage) {
+    if(!storage_simply_mkdir(storage, APP_DATA_PATH(TOKENS_DIR))) {
+        set_debug_text("Failed to mkdir tokens");
+        return false;
+    }
+    return true;
+}
+
+// function to fill the saved submenu with the saved tokens from all .toy filess
+void fill_saved_submenu(LDToyPadApp* app) {
+    submenu_reset(app->submenu_saved_selection);
+
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* dir = storage_file_alloc(storage);
+
+    uint8_t token_count = 0;
+
+    make_token_dir(storage);
+
+    if(!storage_dir_open(dir, APP_DATA_PATH(TOKENS_DIR))) {
+        storage_dir_close(dir);
+        set_debug_text("Failed open dir Tokens");
+        storage_file_free(dir);
+        furi_record_close(RECORD_STORAGE);
+        return;
+    }
+
+    FileInfo file_info;
+    char file_name[FILE_NAME_LEN_MAX / 2];
+
+    while(storage_dir_read(dir, &file_info, file_name, sizeof(file_name))) {
+        if(file_info.flags & FSF_DIRECTORY) {
+            set_debug_text("Skipping directory");
+            continue;
+        }
+
+        char* file_ext = strstr(file_name, TOKEN_FILE_EXTENSION);
+        if((file_ext == NULL) || (strcmp(file_ext, TOKEN_FILE_EXTENSION) != 0)) {
+            set_debug_text("Skipping non-token file (not .toy)");
+            continue;
+        }
+
+        // From the file content get the Token struct
+        Token* token = (Token*)malloc(sizeof(Token));
+
+        File* file = storage_file_alloc(storage);
+
+        // Construct the full file path
+        char file_path[FILE_NAME_LEN_MAX];
+        snprintf(file_path, sizeof(file_path), "%s/%s", APP_DATA_PATH(TOKENS_DIR), file_name);
+
+        if(!storage_file_open(file, file_path, FSAM_READ, FSOM_OPEN_EXISTING)) {
+            set_debug_text("Failed to open token file for reading");
+            free(token);
+            continue;
+        }
+
+        if(!storage_file_read(file, token, sizeof(Token))) {
+            set_debug_text("Failed to read token data");
+            free(token);
+            continue;
+        }
+
+        // if(token->uid[0] != 0x04) {
+        //     set_debug_text("Invalid token UID");
+        //     free(token);
+        //     continue;
+        // }
+
+        // convert the file_path to a furi string
+        FuriString* furi_filepath = furi_string_alloc();
+        furi_string_printf(furi_filepath, "%s", file_path);
+
+        if(app->saved_token_count < MAX_SAVED_TOKENS) {
+            app->saved_token_paths[app->saved_token_count++] = furi_filepath;
+        } else {
+            // fallback in case array is full
+            furi_string_free(furi_filepath);
+            continue;
+        }
+
+        // Add the token to the submenu
+        submenu_add_item(
+            app->submenu_saved_selection,
+            token->name,
+            0,
+            saved_token_submenu_callback,
+            furi_filepath);
+
+        storage_file_close(file);
+        storage_file_free(file);
+
+        token_count++;
+
+        free(token);
+    }
+
+    storage_dir_close(dir);
+    storage_file_close(dir);
+
+    storage_file_free(dir);
+
+    furi_record_close(RECORD_STORAGE);
+
+    if(token_count > 0) {
+        submenu_set_header(app->submenu_saved_selection, "Select a saved vehicle");
+    } else {
+        submenu_set_header(app->submenu_saved_selection, "No saved vehicles");
+    }
+}
+
 // save token function, save like uid.token. save the complete token struct to the file
 
-int save_token(Token* token) {
+bool save_token(Token* token) {
     if(token == NULL) {
         return false;
     }
@@ -190,79 +306,79 @@ int save_token(Token* token) {
         (uint8_t)token->uid[4],
         (uint8_t)token->uid[5]);
 
-    FuriString* temp_str = furi_string_alloc();
-    furi_string_printf(temp_str, "%s/%s%s", APP_DATA_PATH(""), uid, TOKEN_FILE_EXTENSION);
+    char name[16] = {0};
 
-    Storage* storage = furi_record_open(RECORD_STORAGE);
-    File* file = storage_file_alloc(storage);
-
-    if(!storage_file_open(file, furi_string_get_cstr(temp_str), FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
-        furi_string_free(temp_str);
-        return 2;
-    }
-    if(!storage_file_write(file, token, sizeof(Token))) {
-        furi_string_free(temp_str);
-        file_close_and_free(file);
-        return 3;
-    }
-
-    // if(!open_file(file, furi_string_get_cstr(temp_str), true)) {
-    //     storage_file_free(file);
-    //     return 2;
-    // }
-
-    // if(!storage_file_write(file, token, sizeof(Token))) {
-    //     FURI_LOG_E(TAG, "Failed to write token data to file");
-    //     file_close_and_free(file);
-    //     return 3;
-    // }
-
-    furi_string_free(temp_str);
-    file_close_and_free(file);
-    return 1;
-}
-
-// Token* get_saved_token(const char* uid) {
-//     Storage* storage = furi_record_open(RECORD_STORAGE);
-
-//     char filename[FILEPATH_SIZE];
-
-//     snprintf(
-//         filename,
-//         sizeof(filename),
-//         "%s/%s%s",
-//         STORAGE_APP_DATA_PATH_PREFIX,
-//         uid,
-//         TOKEN_FILE_EXTENSION);
-
-//     File* file = storage_file_alloc(storage);
-//     if(!open_file(file, filename, false)) {
-//         storage_file_free(file);
-//         return NULL;
-//     }
-
-//     Token* token = malloc(sizeof(Token));
-//     if(!storage_file_read(file, token, sizeof(Token))) {
-//         FURI_LOG_E(TAG, "Failed to read token data from file: %s", filename);
-//         free(token);
-//         file_close_and_free(file);
-//         return NULL;
-//     }
-
-//     file_close_and_free(file);
-//     return token;
-// }
-
-int get_token_count_of_specific_name(const char* name) {
-    int count = 0;
-    for(int i = 0; i < MAX_TOKENS; i++) {
-        if(emulator->tokens[i] != NULL) {
-            if(strcmp(emulator->tokens[i]->name, name) == 0) {
-                count++;
-            }
+    // remove spaces from name
+    for(unsigned int i = 0; i < sizeof(token->name); i++) {
+        if(token->name[i] != ' ') {
+            name[i] = token->name[i];
         } else {
             break;
         }
     }
-    return count;
+
+    FuriString* temp_str = furi_string_alloc();
+
+    furi_string_printf(
+        temp_str, "%s/%s-%s%s", APP_DATA_PATH(TOKENS_DIR), name, uid, TOKEN_FILE_EXTENSION);
+
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+
+    if(!make_token_dir(storage)) {
+        furi_string_free(temp_str);
+        file_close_and_free(file);
+        return false;
+    }
+
+    if(!storage_file_open(file, furi_string_get_cstr(temp_str), FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+        furi_string_free(temp_str);
+        set_debug_text("Failed to open token to file");
+        return false;
+    }
+    if(!storage_file_write(file, token, sizeof(Token))) {
+        furi_string_free(temp_str);
+        file_close_and_free(file);
+        set_debug_text("Failed to write token to file");
+        return false;
+    }
+
+    furi_string_free(temp_str);
+    file_close_and_free(file);
+
+    set_debug_text("Saved token to file");
+
+    return true;
+}
+
+Token* load_saved_token(char* filepath) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+
+    char filename[FILEPATH_SIZE];
+    snprintf(filename, sizeof(filename), "%s", filepath);
+
+    if(!open_file(file, filename, false)) {
+        file_close_and_free(file);
+        set_debug_text("Failed to open token file for reading");
+        set_debug_text(filepath);
+        return NULL;
+    }
+
+    Token* token = (Token*)malloc(sizeof(Token));
+
+    if(!storage_file_read(file, token, sizeof(Token))) {
+        free(token);
+        file_close_and_free(file);
+        set_debug_text("Failed to read token data");
+        return NULL;
+    }
+
+    file_close_and_free(file);
+
+    furi_record_close(RECORD_STORAGE);
+
+    set_debug_text("Loaded token from file");
+
+    return token;
 }

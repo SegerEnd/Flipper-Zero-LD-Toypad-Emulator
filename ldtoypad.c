@@ -276,7 +276,23 @@ static void ldtoypad_setup_saved_menu(LDToyPadApp* app) {
     view_dispatcher_add_view(
         app->view_dispatcher, ViewSavedSelection, submenu_get_view(app->submenu_saved_selection));
 
-    submenu_set_header(app->submenu_saved_selection, "Select saved vehicle");
+    submenu_set_header(app->submenu_saved_selection, "No saves loaded");
+
+    fill_saved_submenu(app);
+}
+
+static void free_saved_submenu(LDToyPadApp* app) {
+    submenu_reset(app->submenu_saved_selection);
+    view_dispatcher_remove_view(app->view_dispatcher, ViewSavedSelection);
+    submenu_free(app->submenu_saved_selection);
+
+    for(uint8_t i = 0; i < app->saved_token_count; ++i) {
+        if(app->saved_token_paths[i]) {
+            furi_string_free(app->saved_token_paths[i]);
+            app->saved_token_paths[i] = NULL;
+        }
+    }
+    app->saved_token_count = 0;
 }
 
 /**
@@ -336,9 +352,7 @@ static void ldtoypad_app_free(LDToyPadApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, ViewFavoritesSelection);
     submenu_free(app->submenu_favorites_selection);
 
-    submenu_reset(app->submenu_saved_selection);
-    view_dispatcher_remove_view(app->view_dispatcher, ViewSavedSelection);
-    submenu_free(app->submenu_saved_selection);
+    free_saved_submenu(app);
 
     furi_record_close(RECORD_GUI);
 

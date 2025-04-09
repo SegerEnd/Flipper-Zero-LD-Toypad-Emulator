@@ -19,10 +19,11 @@ bool favorite(int id, LDToyPadApp* app);
 bool is_favorite(int id);
 bool unfavorite(int id, LDToyPadApp* app);
 
-int save_token(Token* token);
+bool save_token(Token* token);
 // Token* get_saved_token(const char* uid);
 
-int get_token_count_of_specific_name(const char* name);
+void fill_saved_submenu(LDToyPadApp* app);
+Token* load_saved_token(char* filepath);
 
 #ifdef __cplusplus
 }

@@ -58,7 +58,7 @@ char debug_text_ep_out[HID_EP_SZ] = "nothing";
 char debug_text[64] = " ";
 
 void set_debug_text(char* text) {
-    sprintf(debug_text, "%s", text);
+    snprintf(debug_text, sizeof(debug_text), "%s", text);
 }
 
 void set_debug_text_ep_in(char* text) {
@@ -391,10 +391,20 @@ void create_uid(Token* token, int id) {
 
     token->uid[0] = 0x04; // uid always 0x04
 
-    for(int i = 1; i <= 5; i++) {
-        // Combine id, version_name, and index for a hash
-        token->uid[i] =
-            (uint8_t)((id * 31 + count * 17 + version_name[i % sizeof(version_name)]) % 256);
+    // when token is a vehicle we want a random uid for upgrades etc when creating a new vehicle
+    if(!token->id) {
+        token->uid[1] = rand() % 256;
+        token->uid[2] = rand() % 256;
+        token->uid[3] = rand() % 256;
+        token->uid[4] = rand() % 256;
+        token->uid[5] = rand() % 256;
+    } else {
+        // Generate UID for a minfig, that is always the same for your Flipper Zero
+        for(int i = 1; i <= 5; i++) {
+            // Combine id, version_name, and index for a hash
+            token->uid[i] =
+                (uint8_t)((id * 31 + count * 17 + version_name[i % sizeof(version_name)]) % 256);
+        }
     }
 
     token->uid[6] = 0x80; // last uid byte always 0x80
@@ -718,28 +728,29 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
     case CMD_WRITE:
         sprintf(debug_text, "CMD_WRITE");
 
-        ind = request.payload[0]; // Token index
-        page = request.payload[1]; // Page number
+        // Extract index, page, and data
+        ind = request.payload[0];
+        page = request.payload[1];
         uint8_t* data = request.payload + 2;
 
+        // Find the token
         Token* token = find_token_by_index(emulator, ind);
-        if(token != NULL) {
+        if(token) {
             // Copy 4 bytes of data to token->token at offset 4 * page
             if(page >= 0 && page < 64) {
                 memcpy(token->token + 4 * page, data, 4);
             }
 
-            // If page is 24 or 36, update token->name based on the vehicle ID from the data
             if(page == 24 || page == 36) {
                 uint16_t vehicle_id = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
                 snprintf(token->name, sizeof(token->name), "%s", get_vehicle_name(vehicle_id));
             }
-
-            save_token(token); // Save the token to a file
         }
 
+        // Prepare the response
         response.payload[0] = 0x00;
         response.payload_len = 1;
+
         break;
     case CMD_CHAL:
         sprintf(debug_text, "CMD_CHAL");

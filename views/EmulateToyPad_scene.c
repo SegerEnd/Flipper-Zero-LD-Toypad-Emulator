@@ -19,6 +19,8 @@
 
 #define numBoxes 7 // the number of boxes (7 boxes always)
 
+#define TOKEN_DELAY_TIME 400 // delay time for the token to be placed on the pad in ms
+
 LDToyPadApp* app;
 
 LDToyPadSceneEmulate* toypadscene_instance;
@@ -82,17 +84,32 @@ uint8_t selectedBox = 1; // Variable to keep track of which toypad box is select
 //     }
 
 //     // when the token is a vehicle get the id from the token payload
-//     // if(!emulator->tokens[index]->id) {
-//     //     return emulator->tokens[index]->token[0x24 * 4] |
-//     //            (emulator->tokens[index]->token[0x25 * 4] << 8);
-//     // } else {
-//     //     return emulator->tokens[index]->id;
-//     // }
+//     if(!emulator->tokens[index]->id) {
+//         int id = emulator->tokens[index]->token[0x24 * 4] |
+//                  (emulator->tokens[index]->token[0x25 * 4] << 8);
+//         // convert the id to little endian
+//         id = (id & 0xFF00) >> 8 | (id & 0x00FF) << 8;
+//         return id;
+//     } else {
+//         return emulator->tokens[index]->id;
+//     }
 
 //     if(emulator->tokens[index]->id) {
 //         return emulator->tokens[index]->id;
 //     } else {
 //         return 0;
+//     }
+// }
+
+// int get_id_from_token(Token* token) {
+//     if(token->id) {
+//         return token->id;
+//     } else {
+//         // when the token is a vehicle get the id from the token payload
+//         int id = token->token[0x24 * 4] | (token->token[0x25 * 4] << 8);
+//         // convert the id to little endian
+//         id = (id & 0xFF00) >> 8 | (id & 0x00FF) << 8;
+//         return id;
 //     }
 // }
 
@@ -159,16 +176,9 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
                         case MiniSelectionSave:
                             Token* token = get_token_from_index(boxInfo[selectedBox].index);
                             if(!token->id) {
-                                int saved = save_token(token);
-                                if(saved == 1) {
-                                    set_debug_text("Saved token to file");
-                                } else if(saved == 2) {
-                                    set_debug_text("Failed to open token to file");
-                                } else if(saved == 3) {
-                                    set_debug_text("Failed to write token to file");
-                                } else {
-                                    set_debug_text("Something else went wrong saving token");
-                                }
+                                save_token(token);
+
+                                fill_saved_submenu(app);
                             }
                             break;
                         default:
@@ -341,6 +351,27 @@ void selectedBox_to_pad(Token* token, int selectedBox) {
 }
 
 bool place_token(Token* token, int selectedBox) {
+    // check if the selected token is already placed on the toypad check by uid if the token is already placed then remove the old one and place the new one
+    for(int i = 0; i < MAX_TOKENS; i++) {
+        if(emulator->tokens[i] != NULL) {
+            if(memcmp(emulator->tokens[i]->uid, token->uid, 7) == 0) {
+                // remove the old token
+                if(ToyPadEmu_remove(i)) {
+                    // get the box of the old token and set it to not filled
+                    for(int j = 0; j < numBoxes; j++) {
+                        if(boxInfo[j].index == i) {
+                            boxInfo[j].isFilled = false;
+                            boxInfo[j].index = -1; // Reset index
+                            break;
+                        }
+                    }
+                }
+                furi_delay_ms(TOKEN_DELAY_TIME); // wait for the token to be removed
+                break;
+            }
+        }
+    }
+
     unsigned char buffer[32] = {0};
 
     boxInfo[selectedBox].isFilled = true;
@@ -401,7 +432,9 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "USB device setting...";
     }
 
-    if(get_connected_status() == 2) {
+    int connected_status = get_connected_status();
+
+    if(connected_status == 2) {
         model->connected = true;
         set_connected_status(
             1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
@@ -577,11 +610,14 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
 
         // Draw visible menu
         for(int i = 0; i < visible_count; i++) {
-            if(i == model->mini_option_selected) {
-                canvas_set_font(canvas, FontPrimary);
-            } else {
-                canvas_set_font(canvas, FontSecondary);
-            }
+            // if(i == model->mini_option_selected) {
+            //     canvas_set_font(canvas, FontPrimary);
+            // } else {
+            //     canvas_set_font(canvas, FontSecondary);
+            // }
+
+            // Currebtly only one label is shown, so no need to change font depending on selection
+            canvas_set_font(canvas, FontPrimary);
 
             elements_multiline_text_framed(
                 canvas,
@@ -733,6 +769,47 @@ void ldtoypad_scene_emulate_free(LDToyPadSceneEmulate* ldtoypad_emulate_view) {
 View* ldtoypad_scene_emulate_get_view(LDToyPadSceneEmulate* instance) {
     furi_assert(instance);
     return instance->view;
+}
+
+void saved_token_submenu_callback(void* context, uint32_t index) {
+    UNUSED(index);
+    // get file path from the context char file_path
+    FuriString* filepath = (FuriString*)context;
+
+    if(furi_string_utf8_length(filepath) == 0) {
+        set_debug_text("Not good filepath");
+        furi_string_free(filepath);
+        return;
+    }
+
+    set_debug_text((char*)furi_string_get_cstr(filepath));
+
+    // Load the token from the file
+    Token* token = load_saved_token((char*)furi_string_get_cstr(filepath));
+    if(token == NULL) {
+        furi_string_free(filepath);
+        return;
+    }
+
+    with_view_model(
+        ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
+        LDToyPadSceneEmulateModel * model,
+        {
+            model->selected_minifigure_index = 0;
+            model->selected_vehicle_index = 0;
+            if(model->connected) {
+                // set the token to the selected index
+                Token* token = load_saved_token((char*)furi_string_get_cstr(filepath));
+                if(token != NULL) {
+                    place_token(token, selectedBox);
+                    set_debug_text(token->name);
+                }
+            }
+            model->show_placement_selection_screen = false;
+        },
+        true);
+
+    view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
 }
 
 void minifigures_submenu_callback(void* context, uint32_t index) {

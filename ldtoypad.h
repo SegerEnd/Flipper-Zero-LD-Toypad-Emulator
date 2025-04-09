@@ -22,6 +22,8 @@ extern "C" {
 
 #include "views/EmulateToyPad_scene.h"
 
+#define MAX_SAVED_TOKENS 100
+
 typedef struct {
     ViewDispatcher* view_dispatcher; // Switches between our views
 
@@ -37,6 +39,11 @@ typedef struct {
     Submenu* submenu_vehicle_selection; // The vehicle selection screen
     Submenu* submenu_favorites_selection; // The favorites selection screen
     Submenu* submenu_saved_selection; // The saved selection screen
+
+    FuriString*
+        saved_token_paths[MAX_SAVED_TOKENS]; // Array of saved token file paths to be freed later
+    uint8_t saved_token_count;
+
 } LDToyPadApp;
 
 // Each view is a screen we show the user.

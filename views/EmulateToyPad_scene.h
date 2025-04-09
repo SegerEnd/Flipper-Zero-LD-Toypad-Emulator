@@ -58,3 +58,4 @@ typedef struct {
 
 void minifigures_submenu_callback(void* context, uint32_t index);
 void vehicles_submenu_callback(void* context, uint32_t index);
+void saved_token_submenu_callback(void* context, uint32_t index);
