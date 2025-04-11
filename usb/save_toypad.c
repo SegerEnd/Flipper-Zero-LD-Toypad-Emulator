@@ -298,7 +298,7 @@ bool save_token(Token* token) {
 
     // remove spaces from name
     for(unsigned int i = 0; i < sizeof(token->name); i++) {
-        if(token->name[i] != ' ') {
+        if(token->name[i] != ' ' && token->name[i] != '*') {
             name[i] = token->name[i];
         }
     }
