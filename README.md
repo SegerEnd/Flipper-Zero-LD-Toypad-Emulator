@@ -1,28 +1,20 @@
 # Flipper Zero Lego Dimensions ToyPad Emulator
 
+This project emulates the behavior of the USB ToyPad, allowing you to interact with the game using your Flipper Zero.
+
 Use your **Flipper Zero** as a **Lego Dimensions ToyPad** !
-
-This project emulates the behavior of the original USB ToyPad, allowing you to interact with Lego Dimensions using your Flipper Zero. this app can place characters, vehicles directly from your Flipper.
-
----
-
-## 🚧 Project Status
-
-- ✅ Character placement  
-- ✅ Vehicle placement
-- ✅ Vehicle saving/upgrading
-- ⏳ Easier switching of minfigs (in progress)
 
 ---
 
 ## ✨ Features
 
-- Emulates the Lego Dimensions ToyPad via USB  
-- Place characters and vehicles on any position on the ToyPad
-- 📋 On-device character & vehicle list with selection menu  
-- 🔌 Plug-and-play when connected to Lego Dimensions via USB to your console.
-- ⭐ Favorites, you can favourite a character for quicker placement in the favorites submenu
-- 💾 Saving, you can save a upgraded vehicle and place it via the saved vehicles submenu
+- Emulates the ToyPad via USB
+- Place characters and vehicles on any position of the ToyPad
+- 📋 On-flipper character & vehicle placement list
+- 🔌 Plug-and-play when connected to the game via USB to your console.
+- ⭐ Favorites, you can favorite a character for quick placement in the favorites submenu
+- 💾 Saving, you can save an upgraded vehicle and place it directly via the saved vehicles submenu, save a vehicle by holding the selected box a second and choosing the option "Save vehicle".
+- I use the Flipper mobile app for iPhone myself, to easily control the Flipper via Remote Control while playing.
 
 ## Screenshots
 
@@ -32,15 +24,24 @@ This project emulates the behavior of the original USB ToyPad, allowing you to i
 
 ---
 
+## Project Status
+- ✅ ToyPad connection
+- ✅ Character placement  
+- ✅ Vehicle placement
+- ✅ Vehicle saving/upgrading & favorites
+- ✅ Easier switching of characters
+
+---
+
 ## 📦 Download
 
 ### Prerequisites
 
-- A **Flipper Zero** works with both official and custom firmware (Momentum / RogueMaster)
+- A **Flipper Zero**, works on both official and custom firmware (Momentum / RogueMaster)
 - The **qFlipper** app or any other way to access to Flipper’s file system to upload files.
-- The **Lego Dimensions** game (Only works on PS5, PS4, WII U)
+- The **Lego Dimensions** game (Only works on PS5, PS4, PS3, Wii U)
 
-### How to Download?
+### How to Download? 
 - Download the ldtoypad.fap from the [latest release](https://github.com/SegerEnd/Flipper-Zero-LD-Toypad-Emulator/releases/latest)
 - Place the ***ldtoypad.fap*** in the folder "apps/USB" on your Flipper Zero
 - Done ✅
@@ -65,7 +66,7 @@ Want to help finish the emulator, add new features or improve performance? Contr
 - Submit a pull request with a clear description  
 
 ## 📚 Code Reference
-I used the following similar projects for insights and code snippets that helped the emulation development. [Node LD](https://github.com/AlinaNova21/node-ld) & [LD-ToyPad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator)
+I used the following similar projects for insights and code snippets that helped the emulation development. Without this code and research the code wouldn't be finished. [Node LD](https://github.com/AlinaNova21/node-ld) & [LD-ToyPad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator)
 
 #
 If you'd like to help complete this project, feel free to make a pull request or reach out to me!

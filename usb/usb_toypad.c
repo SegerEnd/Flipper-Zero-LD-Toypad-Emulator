@@ -330,10 +330,6 @@ static HidStateCallback callback;
 static void* cb_ctx;
 static bool boot_protocol = false;
 
-bool furi_hal_hid_is_connected() {
-    return hid_connected;
-}
-
 void furi_hal_hid_set_state_callback(HidStateCallback cb, void* ctx) {
     if(callback != NULL) {
         if(hid_connected == true) callback(false, cb_ctx);
@@ -366,39 +362,20 @@ usbd_device* get_usb_device() {
 
 Burtle* burtle; // Define the Burtle object
 
-int get_token_count_of_specific_id(unsigned int id) {
-    // Get the number of tokens with the same ID
-    int count = 0;
-
-    for(int i = 0; i < MAX_TOKENS; i++) {
-        if(emulator->tokens[i] != NULL) {
-            if(emulator->tokens[i]->id == id) {
-                count++;
-            }
-        } else {
-            break;
-        }
-    }
-    return count;
-}
-
 void create_uid(Token* token, int id) {
     char version_name[7];
     snprintf(version_name, sizeof(version_name), "%s", furi_hal_version_get_name_ptr());
-
-    int count = get_token_count_of_specific_id(
-        id); // when multiple of the same minifigs are placed whe dont want them to have the same uid
 
     token->uid[0] = 0x04; // uid always 0x04
 
     // when token is a vehicle we want a random uid for upgrades etc when creating a new vehicle
     if(!token->id) {
-        token->uid[1] = rand() % 256;
-        token->uid[2] = rand() % 256;
-        token->uid[3] = rand() % 256;
-        token->uid[4] = rand() % 256;
-        token->uid[5] = rand() % 256;
+        for(int i = 1; i <= 5; i++) {
+            token->uid[i] = rand() % 256;
+        }
     } else {
+        int count = get_token_count_of_specific_id(id);
+
         // Generate UID for a minfig, that is always the same for your Flipper Zero
         for(int i = 1; i <= 5; i++) {
             // Combine id, version_name, and index for a hash
@@ -642,12 +619,12 @@ void hid_out_callback(usbd_device* dev, uint8_t event, uint8_t ep) {
         memcpy(emulator->tea_key, default_tea_key, sizeof(emulator->tea_key));
 
         // From: https://github.com/AlinaNova21/node-ld/blob/f54b177d2418432688673aa07c54466d2e6041af/src/lib/ToyPadEmu.js#L139
-        uint8_t wake_payload_2[13] = {
+        uint8_t wake_payload[13] = {
             0x28, 0x63, 0x29, 0x20, 0x4C, 0x45, 0x47, 0x4F, 0x20, 0x32, 0x30, 0x31, 0x34};
 
-        memcpy(response.payload, wake_payload_2, sizeof(wake_payload_2));
+        memcpy(response.payload, wake_payload, sizeof(wake_payload));
 
-        response.payload_len = sizeof(wake_payload_2);
+        response.payload_len = sizeof(wake_payload);
 
         connected_status = 2; // connected / reconnected
 

@@ -20,7 +20,6 @@ bool is_favorite(int id);
 bool unfavorite(int id, LDToyPadApp* app);
 
 bool save_token(Token* token);
-// Token* get_saved_token(const char* uid);
 
 void fill_saved_submenu(LDToyPadApp* app);
 Token* load_saved_token(char* filepath);

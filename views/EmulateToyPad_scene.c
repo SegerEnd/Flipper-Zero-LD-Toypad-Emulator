@@ -306,9 +306,6 @@ bool ldtoypad_scene_emulate_input_callback(InputEvent* event, void* context) {
 }
 
 unsigned char generate_checksum_for_command(const unsigned char* command, size_t len) {
-    // Assert that the length of the command is less than or equal to 31
-    // assert(len <= 31);
-
     unsigned char result = 0;
 
     // Add bytes, wrapping naturally with unsigned char overflow
@@ -418,7 +415,6 @@ bool place_token(Token* token, int selectedBox) {
 static const char* all_mini_menu_labels[] = {"Add favorite", "Save vehicle"};
 
 static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* context) {
-    // UNUSED(context);
     LDToyPadSceneEmulateModel* model = context;
 
     if(model->show_placement_selection_screen) {
@@ -432,9 +428,7 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         model->connection_status = "USB device setting...";
     }
 
-    int connected_status = get_connected_status();
-
-    if(connected_status == 2) {
+    if(get_connected_status() == 2) {
         model->connected = true;
         set_connected_status(
             1); // Set the connected status to 1 (connected) and not 2 (re-connecting)
@@ -457,8 +451,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
         }
     } else if(model->connected) {
         model->connection_status = "USB Connected";
-    } else if(model->usbDevice == NULL) {
-        model->connection_status = "USB not yet connected";
     } else if(!model->connected) {
         model->connection_status = "Trying to connect USB";
     }
@@ -778,7 +770,6 @@ void saved_token_submenu_callback(void* context, uint32_t index) {
 
     if(furi_string_utf8_length(filepath) == 0) {
         set_debug_text("Not good filepath");
-        furi_string_free(filepath);
         return;
     }
 
@@ -787,7 +778,6 @@ void saved_token_submenu_callback(void* context, uint32_t index) {
     // Load the token from the file
     Token* token = load_saved_token((char*)furi_string_get_cstr(filepath));
     if(token == NULL) {
-        furi_string_free(filepath);
         return;
     }
 
@@ -848,4 +838,32 @@ void vehicles_submenu_callback(void* context, uint32_t index) {
         true);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, ViewEmulate);
+}
+
+int get_token_count_of_specific_id(unsigned int id) {
+    // Get the number of tokens with the same ID
+
+    with_view_model(
+        ldtoypad_scene_emulate_get_view(app->view_scene_emulate),
+        LDToyPadSceneEmulateModel * model,
+        {
+            // if quick swap is enabled, we want to return 0
+            if(model->quick_swap) {
+                return 0;
+            }
+        },
+        false);
+
+    int count = 0;
+
+    for(int i = 0; i < MAX_TOKENS; i++) {
+        if(emulator->tokens[i] != NULL) {
+            if(emulator->tokens[i]->id == id) {
+                count++;
+            }
+        } else {
+            break;
+        }
+    }
+    return count;
 }

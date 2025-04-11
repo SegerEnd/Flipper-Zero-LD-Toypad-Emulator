@@ -23,19 +23,16 @@ int num_favorites = 0; // Number of favorites in memory
 bool open_file(File* file, char* filename, bool is_write_mode) {
     Storage* storage = furi_record_open(RECORD_STORAGE);
     if(!storage) {
-        FURI_LOG_E(TAG, "Failed to open storage");
         return false;
     }
 
     if(is_write_mode) {
         if(!storage_file_open(file, filename, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
-            FURI_LOG_E(TAG, "Failed to open favorites file for writing: %s", filename);
             furi_record_close(RECORD_STORAGE);
             return false;
         }
     } else {
         if(!storage_file_open(file, filename, FSAM_READ, FSOM_OPEN_EXISTING)) {
-            FURI_LOG_E(TAG, "Failed to open favorites file for reading: %s", filename);
             furi_record_close(RECORD_STORAGE);
             return false;
         }
@@ -68,11 +65,9 @@ void load_favorites(void) {
     if(!storage_file_read(file, &num_favorites, sizeof(int))) {
         FURI_LOG_E(TAG, "Failed to read favorites count");
     } else if(num_favorites > MAX_FAVORITES) {
-        FURI_LOG_E(TAG, "Too many favorites in file: %d > %d", num_favorites, MAX_FAVORITES);
         num_favorites = MAX_FAVORITES;
     } else if(
         num_favorites > 0 && !storage_file_read(file, favorite_ids, sizeof(int) * num_favorites)) {
-        FURI_LOG_E(TAG, "Failed to read favorite IDs data");
     }
 
     file_close_and_free(file);
@@ -91,13 +86,11 @@ bool save_favorites(void) {
     }
 
     if(!storage_file_write(file, &num_favorites, sizeof(int))) {
-        FURI_LOG_E(TAG, "Failed to write favorites count");
         file_close_and_free(file);
         return false;
     }
 
     if(num_favorites > 0 && !storage_file_write(file, favorite_ids, sizeof(int) * num_favorites)) {
-        FURI_LOG_E(TAG, "Failed to write favorite IDs data");
         file_close_and_free(file);
         return false;
     }
@@ -132,7 +125,6 @@ void fill_favorites_submenu(LDToyPadApp* app) {
 
 bool favorite(int id, LDToyPadApp* app) {
     if(num_favorites >= MAX_FAVORITES) {
-        FURI_LOG_E(TAG, "Favorites list is full, cannot add new favorite");
         return false;
     }
 
@@ -207,18 +199,13 @@ void fill_saved_submenu(LDToyPadApp* app) {
 
     while(storage_dir_read(dir, &file_info, file_name, sizeof(file_name))) {
         if(file_info.flags & FSF_DIRECTORY) {
-            set_debug_text("Skipping directory");
             continue;
         }
 
         char* file_ext = strstr(file_name, TOKEN_FILE_EXTENSION);
         if((file_ext == NULL) || (strcmp(file_ext, TOKEN_FILE_EXTENSION) != 0)) {
-            set_debug_text("Skipping non-token file (not .toy)");
             continue;
         }
-
-        // From the file content get the Token struct
-        Token* token = (Token*)malloc(sizeof(Token));
 
         File* file = storage_file_alloc(storage);
 
@@ -228,31 +215,32 @@ void fill_saved_submenu(LDToyPadApp* app) {
 
         if(!storage_file_open(file, file_path, FSAM_READ, FSOM_OPEN_EXISTING)) {
             set_debug_text("Failed to open token file for reading");
-            free(token);
+            storage_file_free(file);
             continue;
         }
+
+        // From the file content get the Token struct
+        Token* token = (Token*)malloc(sizeof(Token));
 
         if(!storage_file_read(file, token, sizeof(Token))) {
             set_debug_text("Failed to read token data");
             free(token);
+            storage_file_close(file);
+            storage_file_free(file);
             continue;
         }
 
-        // if(token->uid[0] != 0x04) {
-        //     set_debug_text("Invalid token UID");
-        //     free(token);
-        //     continue;
-        // }
-
         // convert the file_path to a furi string
-        FuriString* furi_filepath = furi_string_alloc();
-        furi_string_printf(furi_filepath, "%s", file_path);
+        FuriString* furi_filepath;
 
         if(app->saved_token_count < MAX_SAVED_TOKENS) {
+            furi_filepath = furi_string_alloc();
+            furi_string_printf(furi_filepath, "%s", file_path);
             app->saved_token_paths[app->saved_token_count++] = furi_filepath;
         } else {
             // fallback in case array is full
-            furi_string_free(furi_filepath);
+            storage_file_close(file);
+            storage_file_free(file);
             continue;
         }
 
@@ -312,8 +300,6 @@ bool save_token(Token* token) {
     for(unsigned int i = 0; i < sizeof(token->name); i++) {
         if(token->name[i] != ' ') {
             name[i] = token->name[i];
-        } else {
-            break;
         }
     }
 
