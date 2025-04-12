@@ -98,6 +98,15 @@ static void ldtoypad_setting_minifig_only_mode_change(VariableItem* item) {
     model->minifig_only_mode = index;
 }
 
+static void ldtoypad_setting_quick_switching_mode_change(VariableItem* item) {
+    LDToyPadApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    variable_item_set_current_value_text(item, setting_no_yes[index]);
+    LDToyPadSceneEmulateModel* model =
+        view_get_model(ldtoypad_scene_emulate_get_view(app->view_scene_emulate));
+    model->quick_swap = index;
+}
+
 static uint32_t minifigures_submenu_previous_callback(void* context) {
     UNUSED(context);
     return ViewEmulate;
@@ -163,6 +172,16 @@ static void ldtoypad_setup_settings(LDToyPadApp* app) {
         app);
     variable_item_set_current_value_index(item, setting_minifig_only_mode);
     variable_item_set_current_value_text(item, setting_no_yes[setting_minifig_only_mode]);
+
+    bool setting_minfig_switching_mode = false;
+    item = variable_item_list_add(
+        app->variable_item_list_config,
+        "Quick minifig switching",
+        COUNT_OF(setting_bool_values),
+        ldtoypad_setting_quick_switching_mode_change,
+        app);
+    variable_item_set_current_value_index(item, setting_minfig_switching_mode);
+    variable_item_set_current_value_text(item, setting_no_yes[setting_minfig_switching_mode]);
 
     view_set_previous_callback(
         variable_item_list_get_view(app->variable_item_list_config),
