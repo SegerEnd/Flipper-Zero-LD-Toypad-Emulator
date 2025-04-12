@@ -65,7 +65,7 @@ Want to help finish the emulator, add new features or improve performance? Contr
 - Submit a pull request with a clear description  
 
 ## 📚 Code Reference
-I used the following similar projects for insights and code snippets that helped the emulation development. [Node LD](https://github.com/AlinaNova21/node-ld) & [LD-ToyPad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator)
+I used the following similar projects for insights and code snippets that helped the emulation development. Without this code and research this project wouldn't be finished. [Node LD](https://github.com/AlinaNova21/node-ld) & [LD-ToyPad-Emulator](https://github.com/Berny23/LD-ToyPad-Emulator)
 
 #
 If you'd like to help complete this project, feel free to make a pull request or reach out to me!
