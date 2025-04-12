@@ -425,7 +425,6 @@ static void ldtoypad_scene_emulate_draw_render_callback(Canvas* canvas, void* co
     // when the usb device is not set in modek, set it
     if(model->usbDevice == NULL) {
         model->usbDevice = get_usb_device();
-        model->connection_status = "USB device setting...";
     }
 
     if(get_connected_status() == 2) {
