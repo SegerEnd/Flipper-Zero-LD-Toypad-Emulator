@@ -47,6 +47,7 @@ typedef struct {
     bool show_debug_text_index;
     bool show_icons_index;
     bool minifig_only_mode;
+    bool quick_swap;
 
     bool show_mini_menu_selected;
     MiniSelectionType mini_option_selected;
@@ -59,3 +60,5 @@ typedef struct {
 void minifigures_submenu_callback(void* context, uint32_t index);
 void vehicles_submenu_callback(void* context, uint32_t index);
 void saved_token_submenu_callback(void* context, uint32_t index);
+
+int get_token_count_of_specific_id(unsigned int id);
