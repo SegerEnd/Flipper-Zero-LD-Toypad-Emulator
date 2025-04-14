@@ -1,11 +1,17 @@
-v0.4:
-Added character quick switching option and fixed bug: not being able to save an upgraded vehicle.
+# Changelog
 
-v0.3:
-Added favorites and saving of upgraded vehicles.
+## v0.4
+- Added quick character switching for smoother gameplay.
+- Fixed a bug preventing upgraded vehicles from being saved.
 
-v0.2:
-Added vehicle placement and a new selction screen.
+## v0.3
+- Introduced favorites feature for quick access to characters.
+- Enabled saving of upgraded vehicle configurations.
 
-v0.1:
-Added character placement and toypad connection.
+## v0.2
+- Implemented vehicle placement functionality.
+- Introduced a new selection screen for easier navigation.
+
+## v0.1
+- Implemented character placement.
+- Connected character placement to the toypad system.
