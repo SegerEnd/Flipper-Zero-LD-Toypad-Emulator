@@ -11,7 +11,6 @@ This project emulates the behavior of the original USB ToyPad, allowing you to i
 - ✅ Character placement  
 - ✅ Vehicle placement
 - ✅ Vehicle saving/upgrading
-- ⏳ Easier switching of minfigs (in progress)
 
 ---
 
@@ -30,6 +29,8 @@ This project emulates the behavior of the original USB ToyPad, allowing you to i
 
 ![Minfigure selection menu](https://github.com/user-attachments/assets/9f47cb9d-1990-476e-adb0-3872d39496f8)
 
+![Selection screen](https://github.com/user-attachments/assets/166c77d3-5746-40fa-acff-5cfcafd23206)
+
 ---
 
 ## 📦 Download
@@ -37,13 +38,12 @@ This project emulates the behavior of the original USB ToyPad, allowing you to i
 ### Prerequisites
 
 - A **Flipper Zero** works with both official and custom firmware (Momentum / RogueMaster)
-- The **qFlipper** app or any other way to access to Flipper’s file system to upload files.
-- The **Lego Dimensions** game (Only works on PS5, PS4, WII U)
+- The **Flipper Zero app or site** for downloading from the Flipper App Catalog
+- The **Lego Dimensions** game (Only works on PS5, PS4, PS3, WII U)
 
 ### How to Download?
-- Download the ldtoypad.fap from the [latest release](https://github.com/SegerEnd/Flipper-Zero-LD-Toypad-Emulator/releases/latest)
-- Place the ***ldtoypad.fap*** in the folder "apps/USB" on your Flipper Zero
-- Done ✅
+- This app is available for download in the [Flipper App Catalog](https://lab.flipper.net/apps/ldtoypad)
+- Simply install it directly from the catalog via computer or your phone to your Flipper Zero for the lastest version
 
 ### Other ways to install?
 Yes, this app might be included and preinstalled in some custom firmware, the current custom firmware containg this app are:
