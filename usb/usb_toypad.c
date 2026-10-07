@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 SegerEnd, see LICENSE for additional terms
+
 #include <furi_hal_version.h>
 #include <furi_hal_usb.h>
 #include <furi_hal_usb_hid.h>

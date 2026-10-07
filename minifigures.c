@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2023-2026 SegerEnd
+
 #include "minifigures.h"
 
 #include <furi.h>

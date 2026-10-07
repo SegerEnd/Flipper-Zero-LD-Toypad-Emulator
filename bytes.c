@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 SegerEnd, see LICENSE for additional terms
+
 #include "bytes.h"
 
 uint32_t readUInt32LE(const uint8_t* buffer, int offset) {

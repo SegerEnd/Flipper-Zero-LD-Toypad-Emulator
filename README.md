@@ -58,11 +58,7 @@ If you want to contribute and/or want to modify the code you can clone this repo
 
 ## Contributing
 
-Want to help finish the emulator, add new features or improve performance? Contributions are welcome!
-
-- Fork the repository
-- Create a new branch for your changes
-- Submit a pull request with a clear description
+Want to help finish the emulator, add new features or improve performance? Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the steps and the license of contributions.
 
 ## Project Status
 
@@ -77,6 +73,16 @@ I used the following similar projects for insights and code snippets that helped
 #
 
 If you'd like to help complete this project, feel free to make a pull request or reach out to me!
+
+## License
+
+This project is licensed under the [GNU GPL v3.0](LICENSE), the same license as the [Flipper Zero firmware](https://github.com/flipperdevices/flipperzero-firmware) that parts of the USB code are based on. On top of the GPL, the credit to SegerEnd and the link to this repo must stay visible in the app (the About screen), in the project README and in the LICENSE file. See [LICENSE](LICENSE) for the full terms.
+
+You're welcome to read the code, learn from it and use it in your own apps, as long as they're GPL-3.0 too and keep the credit.
+
+The end of [LICENSE](LICENSE) also contains the licenses of the projects listed under Code Reference.
+
+LEGO and LEGO Dimensions are trademarks of the LEGO Group. This project is not affiliated with or endorsed by the LEGO Group.
 
 ## Support
 

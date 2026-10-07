@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: ISC
+// Copyright (c) 2015 AlinaNova21 (node-ld), see LICENSE
+// Copyright (c) 2023-2026 SegerEnd
+
 #include <furi.h>
 #include "bytes.h"
 #include "debug.h"
